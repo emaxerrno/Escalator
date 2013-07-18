@@ -7,7 +7,15 @@
 
 ### Examples (all lifted from the [tests](https://github.com/Navetas/Escalator/blob/master/escalator/test/source/testescalator.cpp)):
 
-For: ```std::vector<int> a = { 3, 1, 4, 4, 2 };```
+For: 
+
+```C++11
+#include "escalator.hpp"
+
+using navetas::escalator;
+
+std::vector<int> a = { 3, 1, 4, 4, 2 };
+```
 
 #### Square and sort a list of numbers
 
