@@ -103,3 +103,8 @@ std::vector<int> res = lift(iss)
     
 CHECK_SAME_ELEMENTS( res, std::vector<int> { 2, 5, 8, 11 } );
 ```
+
+#### How to build:
+
+* Clone the repo.
+* Build and run tests (on Linux, with Gcc) with ```./sbt "native-build-configuration Gcc_LinuxPC_Release" compile test```
