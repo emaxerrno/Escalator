@@ -1,13 +1,13 @@
 #define BOOST_TEST_DYN_LINK
 
-#include "collectionalgo.hpp"
+#include "escalator.hpp"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/lexical_cast.hpp>
 
 using namespace boost::unit_test;
 
-using namespace ise::collectionalgo;
+using namespace navetas::escalator;
 
 
 template<typename T1, typename T2>

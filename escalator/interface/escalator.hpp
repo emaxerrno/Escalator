@@ -25,7 +25,7 @@ if ( !(predicate) ) \
 }
 
 
-namespace ise { namespace collectionalgo {
+namespace navetas { namespace escalator {
     template<typename T>
     class Optional
     {
@@ -428,6 +428,17 @@ namespace ise { namespace collectionalgo {
         {
             std::vector<ElT> v = toVec();
             std::sort( v.begin(), v.end(), orderingFn );
+            
+            ContainerWrapper<std::vector<ElT>, ElT> vw( std::move(v) );
+            
+            return vw;
+        }
+        
+        template<typename KeyF>
+        ContainerWrapper<std::vector<ElT>, ElT> sortBy( KeyF keyFn )
+        {
+            std::vector<ElT> v = toVec();
+            std::sort( v.begin(), v.end(), [keyFn]( const ElT& lhs, const ElT& rhs ) { return keyFn(lhs) < keyFn(rhs); } );
             
             ContainerWrapper<std::vector<ElT>, ElT> vw( std::move(v) );
             
