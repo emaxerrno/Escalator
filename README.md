@@ -5,13 +5,9 @@
 [![Build Status](https://travis-ci.org/Navetas/Escalator.png)](https://travis-ci.org/Navetas/Escalator)
 
 
-### Examples:
+### Examples (all lifted from ):
 
-For:
-
-```C++
-std::vector<int> a = { 3, 1, 4, 4, 2 };
-```
+For: ```std::vector<int> a = { 3, 1, 4, 4, 2 };```
 
 #### Square and sort a list of numbers
 
@@ -22,7 +18,7 @@ std::vector<int> res1 = lift(a)
     .sortWith( []( int a, int b ) { return a < b; } )
     .toVec();
     
-// Returns: 1, 4, 9, 16, 16
+CHECK_SAME_ELEMENTS( res1, std::vector<int> { 1, 4, 9, 16, 16 } );
 ```
     
 #### Return the index of all elements greater than two
@@ -34,7 +30,7 @@ std::vector<size_t> res2 = lift(a)
   .map( []( const std::pair<int, size_t>& v ) { return v.second; } )
   .toVec();
   
-// Returns: 0, 2, 3
+CHECK_SAME_ELEMENTS( res2, std::vector<int> { 0, 2, 3 } );
 ```
 
 #### Return a sorted list of distinct numbers
@@ -43,7 +39,7 @@ std::vector<size_t> res2 = lift(a)
 std::set<int> res3 = lift(a)
     .toSet();
     
-// Returns: 1, 2, 3, 4
+CHECK_SAME_ELEMENTS( res3, std::vector<int> { 1, 2, 3, 4 } );
 ```
 
 #### Return a list of distinct numbers preserving order
@@ -53,7 +49,7 @@ set::vector<int> res4 = lift(a)
     .distinct()
     .toVec();
     
-// Returns: 3, 1, 4, 2
+CHECK_SAME_ELEMENTS( res4, std::vector<int> { 3, 1, 4, 2 } );
 ```
 
 #### Operations on numeric collections
@@ -84,7 +80,7 @@ std::vector<int> tidied = lift(elements)
     } )
     .toVec();
     
-CHECK_SAME_ELEMENTS( els2, tidied );
+CHECK_SAME_ELEMENTS( els, tidied );
 ```
 
 #### Operations on streams
