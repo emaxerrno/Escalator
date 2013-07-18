@@ -5,7 +5,7 @@
 [![Build Status](https://travis-ci.org/Navetas/Escalator.png)](https://travis-ci.org/Navetas/Escalator)
 
 
-### Examples (all lifted from ):
+### Examples (all lifted from the [tests](https://github.com/Navetas/Escalator/blob/master/escalator/test/source/testescalator.cpp)):
 
 For: ```std::vector<int> a = { 3, 1, 4, 4, 2 };```
 
