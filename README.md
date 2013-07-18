@@ -1,4 +1,6 @@
-## Scala-style functional algorithms on C++ collections (Requires C++11)
+## Scala-style functional algorithms on C++ collections
+
+(Requires C++11)
 
 [![Build Status](https://travis-ci.org/Navetas/Escalator.png)](https://travis-ci.org/Navetas/Escalator)
 
