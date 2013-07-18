@@ -269,11 +269,11 @@ namespace navetas { namespace escalator {
         typedef ElT el_t;
         typedef typename remove_all_reference<ElT>::type value_type;
 
-        std::vector<ElT> toVec()
+        ContainerWrapper<std::vector<ElT>, ElT> toVec()
         {
             std::vector<ElT> t;
             while ( get().hasNext() ) t.push_back( get().next() );
-            return t;
+            return ContainerWrapper<std::vector<ElT>, ElT>( t );
         }
         
         template< class OutputIterator >
@@ -282,32 +282,32 @@ namespace navetas { namespace escalator {
             while ( get().hasNext() ) *v++ = get().next();
         }
         
-        std::deque<ElT> toDeque()
+        ContainerWrapper<std::deque<ElT>, ElT> toDeque()
         {
             std::deque<ElT> t;
             while ( get().hasNext() ) t.push_back( get().next() );
-            return t;
+            return ContainerWrapper<std::deque<ElT>, ElT>(t);
         }
         
-        std::list<ElT> toList()
+        ContainerWrapper<std::list<ElT>, ElT> toList()
         {
             std::list<ElT> t;
             while ( get().hasNext() ) t.push_back( get().next() );
-            return t;
+            return ContainerWrapper<std::list<ElT>, ElT>(t);
         }
         
-        std::set<ElT> toSet()
+        ContainerWrapper<std::set<ElT>, ElT> toSet()
         {
             std::set<ElT> t;
             while ( get().hasNext() ) t.insert( get().next() );
-            return t;
+            return ContainerWrapper<std::set<ElT>, ElT>(t);
         }
         
-        std::multiset<ElT> toMultiSet()
+        ContainerWrapper<std::multiset<ElT>, ElT> toMultiSet()
         {
             std::multiset<ElT> t;
             while ( get().hasNext() ) t.insert( get().next() );
-            return t;
+            return ContainerWrapper<std::multiset<ElT>, ElT>(t);
         }
         
         template<typename FunctorT>
@@ -1048,6 +1048,9 @@ namespace navetas { namespace escalator {
         ContainerWrapper( const Container& data ) : m_data(data), m_iter(m_data.begin()), m_end(m_data.end()), m_counter(0)
         {
         }
+        
+        operator const Container&() const { return m_data; }
+        //operator Container&&() { return std::move(m_data); }
 
         //When copying, copy data that is left to be consumed only
         //Then new object delivers all data in its container
@@ -1122,6 +1125,7 @@ namespace navetas { namespace escalator {
         }
         
         operator const Container&() { return m_data; }
+        const Container& get() { return m_data; }
         
     protected:
         Container       m_data;

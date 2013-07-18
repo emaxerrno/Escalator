@@ -25,6 +25,7 @@ void CHECK_SAME_ELEMENTS( const T1& t1, const T2& t2 )
     } );
 }
 
+
 void test1()
 {
     // vec, set, list etc as things convertible to the std versions but that are still lifted.
@@ -34,16 +35,22 @@ void test1()
     
     std::vector<int> a = { 3, 1, 4, 4, 2 };
     
+    //std::vector<int> aq = lift(a).copyElements();
+    
     std::vector<std::reference_wrapper<const int>> res1 = lift(a).toVec();
     std::set<std::reference_wrapper<const int>> res2 = lift(a).toSet();
     std::list<std::reference_wrapper<const int>> res3 = lift(a).toList();
+    std::multiset<std::reference_wrapper<const int>> res2a = lift(a).toMultiSet();
+    std::deque<std::reference_wrapper<const int>> res3a = lift(a).toDeque();
     
     BOOST_CHECK_EQUAL( res1.size(), 5 );
     BOOST_CHECK_EQUAL( res2.size(), 4 );
     BOOST_CHECK_EQUAL( res3.size(), 5 );
+    BOOST_CHECK_EQUAL( res2a.size(), 5 );
+    BOOST_CHECK_EQUAL( res3a.size(), 5 );
     
     std::set<int> q = { 1, 2, 3, 4 };
-    auto z = lift(res2).zip(lift(q)).toVec();
+    auto z = lift(res2).zip(lift(q)).toVec().get();
     BOOST_CHECK_EQUAL( z.size(), 4 );
     
     CHECK_SAME_ELEMENTS( res2, std::set<int> { 1, 2, 3, 4 } );
@@ -56,8 +63,8 @@ void test1()
         .toVec();
 
     BOOST_CHECK_EQUAL( foo.size(), 5 );    
-    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::tuple<int, int> a ) { return std::get<0>(a); } ).toVec(), a );
-    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::tuple<int, int> a ) { return std::get<1>(a); } ).toVec(), a );
+    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::tuple<int, int> a ) { return std::get<0>(a); } ).toVec().get(), a );
+    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::tuple<int, int> a ) { return std::get<1>(a); } ).toVec().get(), a );
     
     std::vector<std::string> res4 = lift(a)
         .map( [](int x) { return static_cast<double>( x * x ); } )
@@ -140,10 +147,10 @@ void test1()
     std::multiset<int> ms = lift(a).copyElements().toMultiSet();
     CHECK_SAME_ELEMENTS( ms, std::vector<int> { 1, 2, 3, 4, 4 } );
     
-    CHECK_SAME_ELEMENTS( lift(a).drop(0).copyElements().toVec(), std::vector<int> { 3, 1, 4, 4, 2 } );
-    CHECK_SAME_ELEMENTS( lift(a).drop(3).copyElements().toVec(), std::vector<int> { 4, 2 } );
-    CHECK_SAME_ELEMENTS( lift(a).slice(1, 3).copyElements().toVec(), std::vector<int> { 1, 4 } );
-    CHECK_SAME_ELEMENTS( lift(a).take(3).copyElements().toVec(), std::vector<int> { 3, 1, 4 } );
+    CHECK_SAME_ELEMENTS( lift(a).drop(0).copyElements().toVec().get(), std::vector<int> { 3, 1, 4, 4, 2 } );
+    CHECK_SAME_ELEMENTS( lift(a).drop(3).copyElements().toVec().get(), std::vector<int> { 4, 2 } );
+    CHECK_SAME_ELEMENTS( lift(a).slice(1, 3).copyElements().toVec().get(), std::vector<int> { 1, 4 } );
+    CHECK_SAME_ELEMENTS( lift(a).take(3).copyElements().toVec().get(), std::vector<int> { 3, 1, 4 } );
     
     std::vector<std::tuple<int, std::string>> b =
     {
@@ -206,7 +213,7 @@ void test1()
     // will still work despite the presence of mean, median, min, max
     // operations that do not apply to it.
     std::vector<Smook> smook = { Smook(1), Smook(2), Smook(3) };
-    BOOST_CHECK_EQUAL( lift(smook).take(2).toVec().size(), 2 );
+    BOOST_CHECK_EQUAL( lift(smook).take(2).toVec().get().size(), 2 );
 }
 
 // Tests for nested containers, and functionality like flatMap and flatten
@@ -238,7 +245,7 @@ void testFlatMap()
         .toVec();
         
     
-        lift(addOneBase).zip(lift(d)).foreach( []( std::tuple<const std::vector<int>&, const std::vector<int>&> r )
+        addOneBase.zip(lift(d)).foreach( []( std::tuple<const std::vector<int>&, const std::vector<int>&> r )
         {
             CHECK_SAME_ELEMENTS( std::get<0>(r), std::get<1>(r) );
         } );
@@ -270,7 +277,7 @@ void testFlatMap()
 
     //Returning new vectors from map
     {
-        auto res = lift(d)
+        std::vector<int> res = lift(d)
         .map([](const std::vector<int>& v)
         {
             std::vector<int> r;
@@ -357,11 +364,11 @@ void testStringManip()
     std::string lines( "1, 2 ,3  \n 4 ,5, 6\n7,8,9\n10,   11,12  " );
     
     std::istringstream iss(lines);
-    auto res = lift(iss)
+    std::vector<int> res = lift(iss)
         .map( []( const std::string& line )
         {
             auto els = lift(line).split(",").toVec();
-            std::vector<int> numEls = lift(els).map( []( const std::string& el )
+            std::vector<int> numEls = els.map( []( const std::string& el )
             {
                 return boost::lexical_cast<int>( lift(el).trim().toString() );
             } ).toVec();
@@ -389,7 +396,7 @@ void testPartitions()
 
 void testCounter()
 {
-    CHECK_SAME_ELEMENTS( counter().take(5).toVec(), std::vector<int> { 0, 1, 2, 3, 4 } );
+    CHECK_SAME_ELEMENTS( counter().take(5).toVec().get(), std::vector<int> { 0, 1, 2, 3, 4 } );
 }
 
 void testStream()
@@ -408,14 +415,14 @@ void testStream()
 
     Source s;
     s.m_val = 1;
-    auto res = slift(s).take(2).toVec();
+    std::vector<int> res = slift(s).take(2).toVec();
     CHECK_SAME_ELEMENTS( res, std::vector<int> { 1, 1 } );
 }
 
 void testShortInputs()
 {
     auto res = std::vector<int>( { 1, 2, 3, 4 } );
-    CHECK_SAME_ELEMENTS( lift(res).take(4, ASSERT_WHEN_INSUFFICIENT).toVec(), res );
+    CHECK_SAME_ELEMENTS( lift(res).take(4, ASSERT_WHEN_INSUFFICIENT).toVec().get(), res );
 
     BOOST_CHECK_THROW( lift(res).take(5, ASSERT_WHEN_INSUFFICIENT).toVec(), SliceError );
     BOOST_CHECK_THROW( lift(res).drop(5, ASSERT_WHEN_INSUFFICIENT).toVec(), SliceError );
