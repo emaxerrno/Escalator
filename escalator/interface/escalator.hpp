@@ -275,7 +275,7 @@ namespace navetas { namespace escalator {
             std::vector<ElT> t;
             auto it = get().getIterator();
             while ( it.hasNext() ) t.push_back( it.next() );
-            return ContainerWrapper<std::vector<ElT>, ElT>( t );
+            return ContainerWrapper<std::vector<ElT>, ElT>( std::move(t) );
         }
         
         template< class OutputIterator >
@@ -290,7 +290,7 @@ namespace navetas { namespace escalator {
             std::deque<ElT> t;
             auto it = get().getIterator();
             while ( it.hasNext() ) t.push_back( it.next() );
-            return ContainerWrapper<std::deque<ElT>, ElT>(t);
+            return ContainerWrapper<std::deque<ElT>, ElT>( std::move(t) );
         }
         
         ContainerWrapper<std::list<ElT>, ElT> toList()
@@ -298,7 +298,7 @@ namespace navetas { namespace escalator {
             std::list<ElT> t;
             auto it = get().getIterator();
             while ( it.hasNext() ) t.push_back( it.next() );
-            return ContainerWrapper<std::list<ElT>, ElT>(t);
+            return ContainerWrapper<std::list<ElT>, ElT>( std::move(t) );
         }
         
         ContainerWrapper<std::set<ElT>, ElT> toSet()
@@ -306,7 +306,7 @@ namespace navetas { namespace escalator {
             std::set<ElT> t;
             auto it = get().getIterator();
             while ( it.hasNext() ) t.insert( it.next() );
-            return ContainerWrapper<std::set<ElT>, ElT>(t);
+            return ContainerWrapper<std::set<ElT>, ElT>( std::move(t) );
         }
         
         ContainerWrapper<std::multiset<ElT>, ElT> toMultiSet()
@@ -314,7 +314,7 @@ namespace navetas { namespace escalator {
             std::multiset<ElT> t;
             auto it = get().getIterator();
             while ( it.hasNext() ) t.insert( it.next() );
-            return ContainerWrapper<std::multiset<ElT>, ElT>(t);
+            return ContainerWrapper<std::multiset<ElT>, ElT>( std::move(t) );
         }
         
         template<typename FunctorT>
