@@ -50,7 +50,7 @@ void test1()
     BOOST_CHECK_EQUAL( res3a.size(), 5 );
     
     std::set<int> q = { 1, 2, 3, 4 };
-    auto z = lift(res2).zip(lift(q)).toVec().get();
+    auto z = lift(res2).zip(lift(q)).lower<std::vector>();
     BOOST_CHECK_EQUAL( z.size(), 4 );
     
     CHECK_SAME_ELEMENTS( res2, std::set<int> { 1, 2, 3, 4 } );
@@ -63,8 +63,8 @@ void test1()
         .toVec();
 
     BOOST_CHECK_EQUAL( foo.size(), 5 );    
-    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::tuple<int, int> a ) { return std::get<0>(a); } ).toVec().get(), a );
-    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::tuple<int, int> a ) { return std::get<1>(a); } ).toVec().get(), a );
+    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::tuple<int, int> a ) { return std::get<0>(a); } ).lower<std::vector>(), a );
+    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::tuple<int, int> a ) { return std::get<1>(a); } ).lower<std::vector>(), a );
     
     std::vector<std::string> res4 = lift(a)
         .map( [](int x) { return static_cast<double>( x * x ); } )
@@ -116,8 +116,11 @@ void test1()
     BOOST_CHECK_EQUAL( sum, 24 );
     
     // Should preserve order
-    std::vector<int> res9 = lift(a).distinct().copyElements().toVec();
+    std::vector<int> res9 = lift(a).distinct().copyElements().retain<std::vector>();
     CHECK_SAME_ELEMENTS( res9, std::vector<int> { 3, 1, 4, 2 } );
+    
+    auto res9a = lift(a).distinct().copyElements().lower<std::vector>();
+    CHECK_SAME_ELEMENTS( res9, res9a );
     
     {
         std::vector<std::shared_ptr<int>> foo = {
@@ -148,10 +151,10 @@ void test1()
     std::multiset<int> ms = lift(a).copyElements().toMultiSet();
     CHECK_SAME_ELEMENTS( ms, std::vector<int> { 1, 2, 3, 4, 4 } );
     
-    CHECK_SAME_ELEMENTS( lift(a).drop(0).copyElements().toVec().get(), std::vector<int> { 3, 1, 4, 4, 2 } );
-    CHECK_SAME_ELEMENTS( lift(a).drop(3).copyElements().toVec().get(), std::vector<int> { 4, 2 } );
-    CHECK_SAME_ELEMENTS( lift(a).slice(1, 3).copyElements().toVec().get(), std::vector<int> { 1, 4 } );
-    CHECK_SAME_ELEMENTS( lift(a).take(3).copyElements().toVec().get(), std::vector<int> { 3, 1, 4 } );
+    CHECK_SAME_ELEMENTS( lift(a).drop(0).copyElements().lower<std::vector>(), std::vector<int> { 3, 1, 4, 4, 2 } );
+    CHECK_SAME_ELEMENTS( lift(a).drop(3).copyElements().lower<std::vector>(), std::vector<int> { 4, 2 } );
+    CHECK_SAME_ELEMENTS( lift(a).slice(1, 3).copyElements().lower<std::vector>(), std::vector<int> { 1, 4 } );
+    CHECK_SAME_ELEMENTS( lift(a).take(3).copyElements().lower<std::vector>(), std::vector<int> { 3, 1, 4 } );
     
     std::vector<std::tuple<int, std::string>> b =
     {
@@ -220,7 +223,7 @@ void test1()
     // will still work despite the presence of mean, median, min, max
     // operations that do not apply to it.
     std::vector<Smook> smook = { Smook(1), Smook(2), Smook(3) };
-    BOOST_CHECK_EQUAL( lift(smook).take(2).toVec().get().size(), 2 );
+    BOOST_CHECK_EQUAL( lift(smook).take(2).retain<std::vector>().count(), 2 );
 }
 
 // Tests for nested containers, and functionality like flatMap and flatten
@@ -403,7 +406,7 @@ void testPartitions()
 
 void testCounter()
 {
-    CHECK_SAME_ELEMENTS( counter().take(5).toVec().get(), std::vector<int> { 0, 1, 2, 3, 4 } );
+    CHECK_SAME_ELEMENTS( counter().take(5).lower<std::vector>(), std::vector<int> { 0, 1, 2, 3, 4 } );
 }
 
 void testStream()
@@ -429,7 +432,7 @@ void testStream()
 void testShortInputs()
 {
     auto res = std::vector<int>( { 1, 2, 3, 4 } );
-    CHECK_SAME_ELEMENTS( lift(res).take(4, ASSERT_WHEN_INSUFFICIENT).toVec().get(), res );
+    CHECK_SAME_ELEMENTS( lift(res).take(4, ASSERT_WHEN_INSUFFICIENT).lower<std::vector>(), res );
 
     BOOST_CHECK_THROW( lift(res).take(5, ASSERT_WHEN_INSUFFICIENT).toVec(), SliceError );
     BOOST_CHECK_THROW( lift(res).drop(5, ASSERT_WHEN_INSUFFICIENT).toVec(), SliceError );

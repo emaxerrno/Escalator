@@ -269,6 +269,31 @@ namespace navetas { namespace escalator {
     public:
         typedef ElT el_t;
         typedef typename remove_all_reference<ElT>::type value_type;
+        
+        template< class OutputIterator >
+        void toContainer( OutputIterator v ) 
+        {
+            auto it = get().getIterator();
+            while ( it.hasNext() ) *v++ = it.next();
+        }
+        
+        template<template<typename, typename ...> class Container>
+        Container<ElT> lower()
+        {
+            Container<ElT> t;
+            auto it = get().getIterator();
+            while ( it.hasNext() ) t.insert( t.end(), it.next() );
+            return std::move(t);
+        }
+        
+        template<template<typename, typename ...> class Container>
+        ContainerWrapper<Container<ElT>, ElT> retain()
+        {
+            Container<ElT> t;
+            auto it = get().getIterator();
+            while ( it.hasNext() ) t.insert( t.end(), it.next() );
+            return ContainerWrapper<Container<ElT>, ElT>( std::move(t) );
+        }
 
         ContainerWrapper<std::vector<ElT>, ElT> toVec()
         {
@@ -276,13 +301,6 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             while ( it.hasNext() ) t.push_back( it.next() );
             return ContainerWrapper<std::vector<ElT>, ElT>( std::move(t) );
-        }
-        
-        template< class OutputIterator >
-        void toContainer( OutputIterator v ) 
-        {
-            auto it = get().getIterator();
-            while ( it.hasNext() ) *v++ = it.next();
         }
         
         ContainerWrapper<std::deque<ElT>, ElT> toDeque()
