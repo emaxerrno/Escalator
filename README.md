@@ -24,7 +24,7 @@ std::vector<int> a = { 3, 1, 4, 4, 2 };
 std::vector<int> res1 = lift(a)
     .map( []( int v ) { return v * v; } )
     .sortWith( []( int a, int b ) { return a < b; } )
-    .toVec();
+    .lower<std::vector>();
     
 CHECK_SAME_ELEMENTS( res1, std::vector<int> { 1, 4, 9, 16, 16 } );
 ```
@@ -36,7 +36,7 @@ std::vector<size_t> res2 = lift(a)
   .zipWithIndex()
   .filter( []( const std::pair<int, size_t>& v ) { return v.first > 2; } )
   .map( []( const std::pair<int, size_t>& v ) { return v.second; } )
-  .toVec();
+  .lower<std::vector>();
   
 CHECK_SAME_ELEMENTS( res2, std::vector<int> { 0, 2, 3 } );
 ```
@@ -45,7 +45,7 @@ CHECK_SAME_ELEMENTS( res2, std::vector<int> { 0, 2, 3 } );
 
 ```C++
 std::set<int> res3 = lift(a)
-    .toSet();
+    .lower<std::set>();
     
 CHECK_SAME_ELEMENTS( res3, std::vector<int> { 1, 2, 3, 4 } );
 ```
@@ -55,7 +55,7 @@ CHECK_SAME_ELEMENTS( res3, std::vector<int> { 1, 2, 3, 4 } );
 ```C++
 set::vector<int> res4 = lift(a)
     .distinct()
-    .toVec();
+    .lower<std::vector>();
     
 CHECK_SAME_ELEMENTS( res4, std::vector<int> { 3, 1, 4, 2 } );
 ```
@@ -86,7 +86,7 @@ std::vector<int> tidied = lift(elements)
     {
         return boost::lexical_cast<int>(lift(el).trim().toString());
     } )
-    .toVec();
+    .lower<std::vector>();
     
 CHECK_SAME_ELEMENTS( els, tidied );
 ```
@@ -107,7 +107,7 @@ std::vector<int> res = lift(iss)
         } ).toVec();
         return numEls[1];
     } )
-    .toVec();
+    .lower<std::vector>();
     
 CHECK_SAME_ELEMENTS( res, std::vector<int> { 2, 5, 8, 11 } );
 ```
