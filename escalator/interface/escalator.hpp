@@ -256,6 +256,49 @@ namespace navetas { namespace escalator {
     // Non-templatised marker trait for type trait functionality
     class Lifted {};
     
+    template<typename ElT, template<typename, typename ...> class Container>
+    struct MakeContainerType
+    {
+        typedef Container<ElT> type;
+    };
+    
+    template<typename El1T, typename El2T>
+    struct MakeContainerType<std::pair<El1T, El2T>, std::map>
+    {
+        typedef std::map<El1T, El2T> type;
+    };
+    
+    template<typename El1T, typename El2T>
+    struct MakeContainerType<std::pair<El1T, El2T>, std::multimap>
+    {
+        typedef std::multimap<El1T, El2T> type;
+    };
+    
+    
+    template<typename ElT, template<typename, typename ...> class Container>
+    class ConversionHelper
+    {
+    public:
+        typedef typename MakeContainerType<ElT, Container>::type ContainerType;
+    
+        template<typename InputIterator>
+        static ContainerType lower( InputIterator it )
+        {
+            ContainerType t;
+            while ( it.hasNext() ) t.insert( t.end(), it.next() );
+            return std::move(t);
+        }
+        
+        template<typename InputIterator>
+        static ContainerWrapper<ContainerType, ElT> retain( InputIterator it )
+        {
+            ContainerType t;
+            while ( it.hasNext() ) t.insert( t.end(), it.next() );
+            return ContainerWrapper<ContainerType, ElT>( std::move(t) );
+        }
+    };
+    
+    
     template<typename BaseT, typename ElT>
     class ConversionsBase : public Lifted
     {
@@ -278,61 +321,15 @@ namespace navetas { namespace escalator {
         }
         
         template<template<typename, typename ...> class Container>
-        Container<ElT> lower()
+        typename ConversionHelper<ElT, Container>::ContainerType lower()
         {
-            Container<ElT> t;
-            auto it = get().getIterator();
-            while ( it.hasNext() ) t.insert( t.end(), it.next() );
-            return std::move(t);
+            return std::move( ConversionHelper<ElT, Container>::lower( get().getIterator() ) );
         }
         
         template<template<typename, typename ...> class Container>
-        ContainerWrapper<Container<ElT>, ElT> retain()
+        ContainerWrapper<typename ConversionHelper<ElT, Container>::ContainerType, ElT> retain()
         {
-            Container<ElT> t;
-            auto it = get().getIterator();
-            while ( it.hasNext() ) t.insert( t.end(), it.next() );
-            return ContainerWrapper<Container<ElT>, ElT>( std::move(t) );
-        }
-
-        ContainerWrapper<std::vector<ElT>, ElT> toVec()
-        {
-            std::vector<ElT> t;
-            auto it = get().getIterator();
-            while ( it.hasNext() ) t.push_back( it.next() );
-            return ContainerWrapper<std::vector<ElT>, ElT>( std::move(t) );
-        }
-        
-        ContainerWrapper<std::deque<ElT>, ElT> toDeque()
-        {
-            std::deque<ElT> t;
-            auto it = get().getIterator();
-            while ( it.hasNext() ) t.push_back( it.next() );
-            return ContainerWrapper<std::deque<ElT>, ElT>( std::move(t) );
-        }
-        
-        ContainerWrapper<std::list<ElT>, ElT> toList()
-        {
-            std::list<ElT> t;
-            auto it = get().getIterator();
-            while ( it.hasNext() ) t.push_back( it.next() );
-            return ContainerWrapper<std::list<ElT>, ElT>( std::move(t) );
-        }
-        
-        ContainerWrapper<std::set<ElT>, ElT> toSet()
-        {
-            std::set<ElT> t;
-            auto it = get().getIterator();
-            while ( it.hasNext() ) t.insert( it.next() );
-            return ContainerWrapper<std::set<ElT>, ElT>( std::move(t) );
-        }
-        
-        ContainerWrapper<std::multiset<ElT>, ElT> toMultiSet()
-        {
-            std::multiset<ElT> t;
-            auto it = get().getIterator();
-            while ( it.hasNext() ) t.insert( it.next() );
-            return ContainerWrapper<std::multiset<ElT>, ElT>( std::move(t) );
+            return std::move( ConversionHelper<ElT, Container>::retain( get().getIterator() ) );
         }
         
         template<typename FunctorT>
@@ -438,7 +435,7 @@ namespace navetas { namespace escalator {
                 0 );
         }
         
-        typedef MapWithStateWrapper<BaseT, std::function<std::tuple<ElT, ElT>( ElT, Optional<ElT>& state )>, ElT, std::tuple<ElT, ElT>, Optional<ElT>> sliding2_t;
+        typedef MapWithStateWrapper<BaseT, std::function<std::pair<ElT, ElT>( ElT, Optional<ElT>& state )>, ElT, std::pair<ElT, ElT>, Optional<ElT>> sliding2_t;
         sliding2_t sliding2()
         {
             auto it = get().getIterator();
@@ -447,7 +444,7 @@ namespace navetas { namespace escalator {
                 std::move(it),
                 []( ElT el, Optional<ElT>& state )
                 {
-                    std::tuple<ElT, ElT> tp = std::tuple<ElT, ElT>( state.get(), el );
+                    std::pair<ElT, ElT> tp = std::pair<ElT, ElT>( state.get(), el );
                     state = el;
                     return tp;
                 },
@@ -457,7 +454,7 @@ namespace navetas { namespace escalator {
         template<typename OrderingF>
         ContainerWrapper<std::vector<ElT>, ElT> sortWith( OrderingF orderingFn )
         {
-            std::vector<ElT> v = toVec();
+            std::vector<ElT> v = lower<std::vector>();
             std::sort( v.begin(), v.end(), orderingFn );
             
             ContainerWrapper<std::vector<ElT>, ElT> vw( std::move(v) );
@@ -468,7 +465,7 @@ namespace navetas { namespace escalator {
         template<typename KeyF>
         ContainerWrapper<std::vector<ElT>, ElT> sortBy( KeyF keyFn )
         {
-            std::vector<ElT> v = toVec();
+            std::vector<ElT> v = lower<std::vector>();
             std::sort( v.begin(), v.end(), [keyFn]( const ElT& lhs, const ElT& rhs ) { return keyFn(lhs) < keyFn(rhs); } );
             
             ContainerWrapper<std::vector<ElT>, ElT> vw( std::move(v) );
@@ -478,7 +475,7 @@ namespace navetas { namespace escalator {
 
         ContainerWrapper<std::vector<ElT>, ElT> sort()
         {
-            std::vector<ElT> v = toVec();
+            std::vector<ElT> v = lower<std::vector>();
             std::sort( v.begin(), v.end(), [](const ElT& a, const ElT& b)
             {
                 //May be asked to compare std::reference_wrappers around types
@@ -676,7 +673,7 @@ namespace navetas { namespace escalator {
         }
         
         //TODO: Should these use boost::optional to work round init requirements?
-        std::tuple<size_t, value_type> argMin()
+        std::pair<size_t, value_type> argMin()
         {
             bool init = true;
             value_type ext = value_type();
@@ -697,10 +694,10 @@ namespace navetas { namespace escalator {
                 }
                 init = false;
             }
-            return std::make_tuple( minIndex, std::move(ext) );
+            return std::make_pair( minIndex, std::move(ext) );
         }
         
-        std::tuple<size_t, value_type> argMax()
+        std::pair<size_t, value_type> argMax()
         {
             bool init = true;
             value_type ext = value_type();
@@ -721,7 +718,7 @@ namespace navetas { namespace escalator {
                 }
                 init = false;
             }
-            return std::make_tuple( maxIndex, std::move(ext) );
+            return std::make_pair( maxIndex, std::move(ext) );
         }
         
         value_type min() { return std::template get<1>(argMin()); }
@@ -750,36 +747,7 @@ namespace navetas { namespace escalator {
     {
     };
     
-    template<typename BaseT, typename El1T, typename El2T>
-    class ConversionsImpl<BaseT, std::tuple<El1T, El2T>, std::false_type> : public ConversionsBase<BaseT, std::tuple<El1T, El2T>>
-    {
-    public:
-        std::map<El1T, El2T> toMap()
-        {
-            std::map<El1T, El2T> t;
-            // NOTE: without the 'this->', Clang claims that 'get' is undeclared. Gcc makes a similar claim.
-            auto it = this->get().getIterator();
-            while ( it.hasNext() )
-            {
-                auto n = std::move(it.next());
-                t[std::move(std::get<0>(n))] = std::move(std::get<1>(n));
-            }
-            return t;
-        }
-        
-        std::multimap<El1T, El2T> toMultiMap()
-        {
-            std::multimap<El1T, El2T> t;
-            // NOTE: without the 'this->', Clang claims that 'get' is undeclared. Gcc makes a similar claim.
-            auto it = this->get().getIterator();
-            while ( it.hasNext() )
-            {
-                auto n = std::move(it.next());
-                t.insert( std::make_pair(std::move(std::get<0>(n)), std::move(std::get<1>(n)) ) );
-            }
-            return t;
-        }
-    };
+    
     
     template<typename BaseT, typename ElT>
     class ConversionsImpl<BaseT, ElT, std::true_type> : public ConversionsBase<BaseT, ElT>
@@ -949,7 +917,7 @@ namespace navetas { namespace escalator {
     };
     
     template<typename Source1T, typename El1T, typename Source2T, typename El2T>
-    class ZipWrapper : public Conversions<ZipWrapper<Source1T, El1T, Source2T, El2T>, std::tuple<El1T, El2T>>
+    class ZipWrapper : public Conversions<ZipWrapper<Source1T, El1T, Source2T, El2T>, std::pair<El1T, El2T>>
     {
     public:
         ZipWrapper( const typename Source1T::Iterator& source1, const typename Source2T::Iterator& source2 ) :
@@ -967,7 +935,7 @@ namespace navetas { namespace escalator {
         typedef ZipWrapper<Source1T, El1T, Source2T, El2T> Iterator;
         Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source1.hasNext() && m_source2.hasNext(); }
-        std::tuple<El1T, El2T> next() { return std::make_tuple( std::move(m_source1.next()), std::move(m_source2.next()) ); }
+        std::pair<El1T, El2T> next() { return std::make_pair( std::move(m_source1.next()), std::move(m_source2.next()) ); }
         
     private:
         typename Source1T::Iterator m_source1;
@@ -1299,10 +1267,10 @@ namespace navetas { namespace escalator {
     double ConversionsBase<BaseT, ElT>::increasing()
     {
         std::vector<double> res = zipWithIndex()
-            .sortWith( []( const std::tuple<ElT, size_t>& a, const std::tuple<ElT, size_t>& b ) { return std::get<0>(a) < std::get<0>(b); } )
-            .map( []( const std::tuple<ElT, size_t>& v ) { return std::get<1>(v); } )
+            .sortWith( []( const std::pair<ElT, size_t>& a, const std::pair<ElT, size_t>& b ) { return std::get<0>(a) < std::get<0>(b); } )
+            .map( []( const std::pair<ElT, size_t>& v ) { return std::get<1>(v); } )
             .zipWithIndex()
-            .map( []( const std::tuple<size_t, size_t>& v ) { return std::abs( static_cast<double>( std::get<0>(v) ) - static_cast<double>( std::get<1>(v) ) ); } )
+            .map( []( const std::pair<size_t, size_t>& v ) { return std::abs( static_cast<double>( std::get<0>(v) ) - static_cast<double>( std::get<1>(v) ) ); } )
             .toVec();
             
         double scale = static_cast<double>(res.size() * res.size()) / 2.0;

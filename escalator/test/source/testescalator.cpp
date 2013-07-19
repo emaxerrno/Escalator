@@ -19,9 +19,9 @@ void CHECK_SAME_ELEMENTS( const T1& t1, const T2& t2 )
     
     auto z = s1.zip(s2);
     
-    z.foreach( []( std::tuple<typename T1::value_type, typename T2::value_type> v )
+    z.foreach( []( std::pair<typename T1::value_type, typename T2::value_type> v )
     {
-        BOOST_CHECK_EQUAL( std::get<0>(v), std::get<1>(v) );
+        BOOST_CHECK_EQUAL( v.first, v.second );
     } );
 }
 
@@ -37,11 +37,11 @@ void test1()
     
     //std::vector<int> aq = lift(a).copyElements();
     
-    std::vector<std::reference_wrapper<const int>> res1 = lift(a).toVec();
-    std::set<std::reference_wrapper<const int>> res2 = lift(a).toSet();
-    std::list<std::reference_wrapper<const int>> res3 = lift(a).toList();
-    std::multiset<std::reference_wrapper<const int>> res2a = lift(a).toMultiSet();
-    std::deque<std::reference_wrapper<const int>> res3a = lift(a).toDeque();
+    std::vector<std::reference_wrapper<const int>> res1 = lift(a).retain<std::vector>();
+    std::set<std::reference_wrapper<const int>> res2 = lift(a).retain<std::set>();
+    std::list<std::reference_wrapper<const int>> res3 = lift(a).retain<std::list>();
+    std::multiset<std::reference_wrapper<const int>> res2a = lift(a).retain<std::multiset>();
+    std::deque<std::reference_wrapper<const int>> res3a = lift(a).retain<std::deque>();
     
     BOOST_CHECK_EQUAL( res1.size(), 5 );
     BOOST_CHECK_EQUAL( res2.size(), 4 );
@@ -55,24 +55,24 @@ void test1()
     
     CHECK_SAME_ELEMENTS( res2, std::set<int> { 1, 2, 3, 4 } );
     
-    std::vector<std::tuple<int, int>> foo = lift(a).copyElements().zip( lift(a).copyElements() ).toVec();
+    std::vector<std::pair<int, int>> foo = lift(a).copyElements().zip( lift(a).copyElements() ).retain<std::vector>();
     
     auto foo2 = lift(a)
         .map( []( const int& v ) -> const int& { return v; } )
         .castElements<std::reference_wrapper<const int>>()
-        .toVec();
+        .retain<std::vector>();
 
     BOOST_CHECK_EQUAL( foo.size(), 5 );    
-    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::tuple<int, int> a ) { return std::get<0>(a); } ).lower<std::vector>(), a );
-    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::tuple<int, int> a ) { return std::get<1>(a); } ).lower<std::vector>(), a );
+    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::pair<int, int> a ) { return a.first; } ).lower<std::vector>(), a );
+    CHECK_SAME_ELEMENTS( lift(foo).map( []( std::pair<int, int> a ) { return a.second; } ).lower<std::vector>(), a );
     
     std::vector<std::string> res4 = lift(a)
         .map( [](int x) { return static_cast<double>( x * x ); } )
-        .map( [](double x) { return boost::lexical_cast<std::string>(x); } ).toVec();    
+        .map( [](double x) { return boost::lexical_cast<std::string>(x); } ).retain<std::vector>();    
     BOOST_CHECK_EQUAL( res4.size(), 5 );
     CHECK_SAME_ELEMENTS( res4, std::vector<std::string> { "9", "1", "16", "16", "4" } );
         
-    std::vector<int> res5 = lift(a).filter( []( int a ) { return a < 4; } ).copyElements().toVec();
+    std::vector<int> res5 = lift(a).filter( []( int a ) { return a < 4; } ).copyElements().retain<std::vector>();
     BOOST_CHECK_EQUAL( res5.size(), 3 );
     CHECK_SAME_ELEMENTS( res5, std::vector<int> { 3, 1, 2 } );
     
@@ -80,15 +80,15 @@ void test1()
         .zipWithIndex()
         .filter( []( const std::pair<int, size_t>& v ) { return v.second > 0; } )
         .map( []( const std::pair<int, size_t>& v ) { return v.first; } )
-        .toVec();
+        .retain<std::vector>();
         
     BOOST_CHECK_EQUAL( res6.size(), 4 );
     CHECK_SAME_ELEMENTS( res6, std::vector<int> { 1, 4, 4, 2 } );
     
     std::vector<int> res7 = lift(a)
         .sliding2()
-        .map( []( const std::tuple<int, int>& v ) { return std::get<1>(v) - std::get<0>(v); } )
-        .toVec();
+        .map( []( const std::pair<int, int>& v ) { return v.second - v.first; } )
+        .retain<std::vector>();
 
     BOOST_CHECK_EQUAL( res7.size(), 4 );
     CHECK_SAME_ELEMENTS( res7, std::vector<int> { -2, 3, 0, -2 } );
@@ -97,7 +97,7 @@ void test1()
     std::vector<int> res8 = lift(a)
         .map( []( int v ) { return v * v; } )
         .sortWith( []( int a, int b ) { return a < b; } )
-        .toVec();
+        .retain<std::vector>();
     
     BOOST_CHECK_EQUAL( res8.size(), 5 );
     CHECK_SAME_ELEMENTS( res8, std::vector<int> { 1, 4, 9, 16, 16 } );
@@ -105,7 +105,7 @@ void test1()
     std::vector<int> res8Default = lift(a)
         .map( []( int v ) { return v * v; } )
         .sort()
-        .toVec();
+        .retain<std::vector>();
     
     BOOST_CHECK_EQUAL( res8Default.size(), 5 );
     CHECK_SAME_ELEMENTS( res8Default, std::vector<int> { 1, 4, 9, 16, 16 } );
@@ -139,16 +139,16 @@ void test1()
                 return *a < *b;
             } )
             .map( []( const std::shared_ptr<int>& a ) -> int { return *a; } )
-            .toVec();
+            .retain<std::vector>();
             
         CHECK_SAME_ELEMENTS( unique, std::vector<int> { 1, 3, 4 } );
     }
     
     // Shouldn't preserve order
-    std::set<int> res10 = lift(a).copyElements().toSet();
+    std::set<int> res10 = lift(a).copyElements().retain<std::set>();
     CHECK_SAME_ELEMENTS( res10, std::vector<int> { 1, 2, 3, 4 } );
     
-    std::multiset<int> ms = lift(a).copyElements().toMultiSet();
+    std::multiset<int> ms = lift(a).copyElements().retain<std::multiset>();
     CHECK_SAME_ELEMENTS( ms, std::vector<int> { 1, 2, 3, 4, 4 } );
     
     CHECK_SAME_ELEMENTS( lift(a).drop(0).copyElements().lower<std::vector>(), std::vector<int> { 3, 1, 4, 4, 2 } );
@@ -156,34 +156,33 @@ void test1()
     CHECK_SAME_ELEMENTS( lift(a).slice(1, 3).copyElements().lower<std::vector>(), std::vector<int> { 1, 4 } );
     CHECK_SAME_ELEMENTS( lift(a).take(3).copyElements().lower<std::vector>(), std::vector<int> { 3, 1, 4 } );
     
-    std::vector<std::tuple<int, std::string>> b =
+    std::vector<std::pair<int, std::string>> b =
     {
-        std::make_tuple( 1, "B" ),
-        std::make_tuple( 2, "D" ),
-        std::make_tuple( 3, "X" ),
-        std::make_tuple( 1, "C" ),
-        std::make_tuple( 2, "A" ),
-        std::make_tuple( 2, "B" ),
-        std::make_tuple( 4, "Z" ),
-        std::make_tuple( 2, "C" ),
-        std::make_tuple( 1, "A" ),
-        std::make_tuple( 3, "Y" )
+        std::make_pair( 1, "B" ),
+        std::make_pair( 2, "D" ),
+        std::make_pair( 3, "X" ),
+        std::make_pair( 1, "C" ),
+        std::make_pair( 2, "A" ),
+        std::make_pair( 2, "B" ),
+        std::make_pair( 4, "Z" ),
+        std::make_pair( 2, "C" ),
+        std::make_pair( 1, "A" ),
+        std::make_pair( 3, "Y" )
     };
     
     std::map<int, std::vector<std::string>> grouped = lift(b)
         .groupBy(
-            []( const std::tuple<int, std::string>& v ) { return std::get<0>(v); },
-            []( const std::tuple<int, std::string>& v ) -> std::string { return std::get<1>(v); } );
+            []( const std::pair<int, std::string>& v ) { return v.first; },
+            []( const std::pair<int, std::string>& v ) -> std::string { return v.second; } );
             
-            
-    std::map<int, std::string> mv = lift(b).copyElements().toMap();
+    std::map<int, std::string> mv = lift(b).copyElements().lower<std::map>();
     BOOST_REQUIRE_EQUAL( mv.size(), 4 );
-    BOOST_CHECK_EQUAL( mv[1], "A" );
-    BOOST_CHECK_EQUAL( mv[2], "C" );
-    BOOST_CHECK_EQUAL( mv[3], "Y" );
+    BOOST_CHECK_EQUAL( mv[1], "B" );
+    BOOST_CHECK_EQUAL( mv[2], "D" );
+    BOOST_CHECK_EQUAL( mv[3], "X" );
     BOOST_CHECK_EQUAL( mv[4], "Z" );
     
-    std::multimap<int, std::string> mmv = lift(b).copyElements().toMultiMap();
+    std::multimap<int, std::string> mmv = lift(b).copyElements().lower<std::multimap>();
     BOOST_REQUIRE_EQUAL( mmv.size(), 10 );
         
     BOOST_REQUIRE_EQUAL( grouped.size(), 4 );
@@ -194,10 +193,10 @@ void test1()
     
     std::vector<double> c = { 1.0, 2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 4.9, 4.9, 5.2, 4.9, 4.9, 5.2, 9.0, 5.0 };
     
-    BOOST_CHECK_EQUAL( lift(c).toVec().count(), 15 );
-    BOOST_CHECK_EQUAL( lift(c).toList().count(), 15 );
-    BOOST_CHECK_EQUAL( lift(c).toDeque().count(), 15 );
-    BOOST_CHECK_EQUAL( lift(c).toSet().count(), 11 );
+    BOOST_CHECK_EQUAL( lift(c).retain<std::vector>().count(), 15 );
+    BOOST_CHECK_EQUAL( lift(c).retain<std::list>().count(), 15 );
+    BOOST_CHECK_EQUAL( lift(c).retain<std::deque>().count(), 15 );
+    BOOST_CHECK_EQUAL( lift(c).retain<std::set>().count(), 11 );
     
     BOOST_CHECK_CLOSE( lift(c).mean(), 5.0, 1e-6 );
     BOOST_CHECK_CLOSE( lift(c).median(), 4.9, 1e-6 );
@@ -205,8 +204,8 @@ void test1()
     BOOST_CHECK_CLOSE( lift(c).min(), 1.0, 1e-6 );
     BOOST_CHECK_CLOSE( lift(c).max(), 9.0, 1e-6 );
     
-    BOOST_CHECK_EQUAL( std::get<0>( lift(c).argMin() ), 0 );
-    BOOST_CHECK_EQUAL( std::get<0>( lift(c).argMax() ), 13 );
+    BOOST_CHECK_EQUAL( lift(c).argMin().first, 0 );
+    BOOST_CHECK_EQUAL( lift(c).argMax().first, 13 );
     
     BOOST_CHECK_CLOSE( lift(c).take(1).median(), 1.0, 1e-6 );
     BOOST_CHECK_CLOSE( lift(c).take(2).median(), 1.5, 1e-6 );
@@ -250,14 +249,14 @@ void testFlatMap()
         auto addOneBase = mlift(d)
         .map( []( const std::vector<int>& v )
         {
-            return lift(v).map( identity ).toVec();
+            return lift(v).map( identity ).retain<std::vector>();
         } )
-        .toVec();
+        .retain<std::vector>();
         
     
-        addOneBase.zip(lift(d)).foreach( []( std::tuple<const std::vector<int>&, const std::vector<int>&> r )
+        addOneBase.zip(lift(d)).foreach( []( std::pair<const std::vector<int>&, const std::vector<int>&> r )
         {
-            CHECK_SAME_ELEMENTS( std::get<0>(r), std::get<1>(r) );
+            CHECK_SAME_ELEMENTS( r.first, r.second );
         } );
     }
 
@@ -268,7 +267,7 @@ void testFlatMap()
             return lift(v).map( []( int a ) { return a+1; } );
         } );
         
-        std::vector<int> res = addOne.flatMap( []( int a ) { return a*2; } ).toVec();
+        std::vector<int> res = addOne.flatMap( []( int a ) { return a*2; } ).retain<std::vector>();
 
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 6, 8, 10, 12, 14, 16, 10, 12, 14, 16, 18, 20, 22 } );
     }
@@ -280,7 +279,7 @@ void testFlatMap()
             return lift(v).map( []( int a ) { return 2*(a+1); } );
         } );
         
-        std::vector<int> res = addOne.flatten().toVec();
+        std::vector<int> res = addOne.flatten().retain<std::vector>();
 
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 6, 8, 10, 12, 14, 16, 10, 12, 14, 16, 18, 20, 22 } );
     }
@@ -295,7 +294,7 @@ void testFlatMap()
             return clift(std::move(r));
         })
         .flatten()
-        .toVec();
+        .retain<std::vector>();
 
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 6, 8, 10, 12, 14, 16, 10, 12, 14, 16, 18, 20, 22 } );
     }
@@ -333,9 +332,9 @@ void test3()
         mlift(foo)
             .map( []( int& a ) { return &a; } )
             .sliding2()
-            .foreach( []( std::tuple<int*, int*> t )
+            .foreach( []( std::pair<int*, int*> t )
             {
-                *std::get<0>(t) += *std::get<1>(t);
+                *t.first += *t.second;
             } );
             
         CHECK_SAME_ELEMENTS( foo, std::vector<int> { 3, 5, 7, 9, 5 } );
@@ -345,9 +344,9 @@ void test3()
         std::vector<int> foo = { 1, 2, 3, 4, 5 };
         mlift(foo)
             .sliding2()
-            .foreach( []( std::tuple<int&, int&> t )
+            .foreach( []( std::pair<int&, int&> t )
             {
-                std::get<0>(t) += std::get<1>(t);
+                t.first += t.second;
             } );
         CHECK_SAME_ELEMENTS( foo, std::vector<int> { 3, 5, 7, 9, 5 } );
     }
@@ -367,7 +366,7 @@ void testStringManip()
     std::vector<int> tidied = lift(elements)
         .split(",")
         .map( []( const std::string& el ) { return boost::lexical_cast<int>(lift(el).trim().toString()); } )
-        .toVec();
+        .retain<std::vector>();
 
     CHECK_SAME_ELEMENTS( els2, tidied );
     
@@ -377,14 +376,14 @@ void testStringManip()
     std::vector<int> res = lift(iss)
         .map( []( const std::string& line )
         {
-            auto els = lift(line).split(",").toVec();
+            auto els = lift(line).split(",").retain<std::vector>();
             std::vector<int> numEls = els.map( []( const std::string& el )
             {
                 return boost::lexical_cast<int>( lift(el).trim().toString() );
-            } ).toVec();
+            } ).retain<std::vector>();
             return numEls[1];
         } )
-        .toVec();
+        .retain<std::vector>();
         
     CHECK_SAME_ELEMENTS( res, std::vector<int> { 2, 5, 8, 11 } );
 }
@@ -425,7 +424,7 @@ void testStream()
 
     Source s;
     s.m_val = 1;
-    std::vector<int> res = slift(s).take(2).toVec();
+    std::vector<int> res = slift(s).take(2).retain<std::vector>();
     CHECK_SAME_ELEMENTS( res, std::vector<int> { 1, 1 } );
 }
 
@@ -434,10 +433,10 @@ void testShortInputs()
     auto res = std::vector<int>( { 1, 2, 3, 4 } );
     CHECK_SAME_ELEMENTS( lift(res).take(4, ASSERT_WHEN_INSUFFICIENT).lower<std::vector>(), res );
 
-    BOOST_CHECK_THROW( lift(res).take(5, ASSERT_WHEN_INSUFFICIENT).toVec(), SliceError );
-    BOOST_CHECK_THROW( lift(res).drop(5, ASSERT_WHEN_INSUFFICIENT).toVec(), SliceError );
-    BOOST_CHECK_THROW( lift(res).slice(6, 8, ASSERT_WHEN_INSUFFICIENT).toVec(), SliceError );
-    BOOST_CHECK_THROW( lift(res).slice(3, 8, ASSERT_WHEN_INSUFFICIENT).toVec(), SliceError );
+    BOOST_CHECK_THROW( lift(res).take(5, ASSERT_WHEN_INSUFFICIENT).retain<std::vector>(), SliceError );
+    BOOST_CHECK_THROW( lift(res).drop(5, ASSERT_WHEN_INSUFFICIENT).retain<std::vector>(), SliceError );
+    BOOST_CHECK_THROW( lift(res).slice(6, 8, ASSERT_WHEN_INSUFFICIENT).retain<std::vector>(), SliceError );
+    BOOST_CHECK_THROW( lift(res).slice(3, 8, ASSERT_WHEN_INSUFFICIENT).retain<std::vector>(), SliceError );
 
     BOOST_CHECK_THROW( lift(std::vector<int>()).mean(), std::runtime_error );
 }
@@ -551,17 +550,17 @@ void testIteratorAndIterable()
         
         auto minusOne = lift(a)
             .map( []( int v ) { return v - 1; } )
-            .toVec();
+            .retain<std::vector>();
             
         std::vector<int> squared = minusOne
             .map( []( int v ) { return v * v; } )
-            .toVec(); 
+            .retain<std::vector>(); 
            
         CHECK_SAME_ELEMENTS( squared, std::vector<int> { 0, 1, 4, 9, 16, 25, 36, 49, 64 } );
            
         std::vector<std::string> asString = minusOne
             .map( []( int v ) { return boost::lexical_cast<std::string>(v); } )
-            .toVec(); 
+            .retain<std::vector>(); 
             
         
         CHECK_SAME_ELEMENTS( asString, std::vector<std::string> { "0", "1", "2", "3", "4", "5", "6", "7", "8" } );
@@ -571,7 +570,7 @@ void testIteratorAndIterable()
     {
         std::vector<int> a;
         
-        std::vector<int> res = lift(a).map( []( int v ) { return v + 1; } ).toVec();
+        std::vector<int> res = lift(a).map( []( int v ) { return v + 1; } ).retain<std::vector>();
         BOOST_CHECK( res.empty() );
     }
     
@@ -584,7 +583,7 @@ void testIteratorAndIterable()
             
         std::vector<int> squared = minusOne
             .map( []( int v ) { return v * v; } )
-            .toVec(); 
+            .retain<std::vector>(); 
 
         CHECK_SAME_ELEMENTS( squared, std::vector<int> { 0, 1, 4, 9, 16, 25, 36, 49, 64 } );            
          
@@ -592,7 +591,7 @@ void testIteratorAndIterable()
         /*   
         std::vector<std::string> asString = minusOne
             .map( []( int v ) { return boost::lexical_cast<std::string>(v); } )
-            .toVec(); 
+            .retain<std::vector>(); 
 
         for ( auto s : asString ) std::cout << "FOOT: " << s << std::endl;
         BOOST_CHECK( asString.empty() );
