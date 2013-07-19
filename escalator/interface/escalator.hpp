@@ -1161,7 +1161,8 @@ namespace navetas { namespace escalator {
         
         
         operator const Container&() { return m_data; }
-        const Container& get() { return m_data; }
+        const Container& get() const { return m_data; }
+        Container& get() { return m_data; }
         
     protected:
         Container       m_data;
