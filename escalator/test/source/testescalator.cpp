@@ -89,6 +89,7 @@ void test1()
         .sliding2()
         .map( []( const std::tuple<int, int>& v ) { return std::get<1>(v) - std::get<0>(v); } )
         .toVec();
+
     BOOST_CHECK_EQUAL( res7.size(), 4 );
     CHECK_SAME_ELEMENTS( res7, std::vector<int> { -2, 3, 0, -2 } );
         
@@ -530,6 +531,66 @@ void testOptional()
     BOOST_CHECK_EQUAL( unique_res, 2 );
 }
 
+
+
+void testIteratorAndIterable()
+{
+    // Check that we can iterate repeatedly over lifted container wrappers (they are iterable,
+    // rather than just iterators)
+    {
+        std::vector<int> a = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+        
+        auto minusOne = lift(a)
+            .map( []( int v ) { return v - 1; } )
+            .toVec();
+            
+        std::vector<int> squared = minusOne
+            .map( []( int v ) { return v * v; } )
+            .toVec(); 
+           
+        CHECK_SAME_ELEMENTS( squared, std::vector<int> { 0, 1, 4, 9, 16, 25, 36, 49, 64 } );
+           
+        std::vector<std::string> asString = minusOne
+            .map( []( int v ) { return boost::lexical_cast<std::string>(v); } )
+            .toVec(); 
+            
+        
+        CHECK_SAME_ELEMENTS( asString, std::vector<std::string> { "0", "1", "2", "3", "4", "5", "6", "7", "8" } );
+    }
+    
+    // Quick check that a lifted empty container behaves itself
+    {
+        std::vector<int> a;
+        
+        std::vector<int> res = lift(a).map( []( int v ) { return v + 1; } ).toVec();
+        BOOST_CHECK( res.empty() );
+    }
+    
+    // And that the same doesn't work without collapsing to a vec
+    {
+        std::vector<int> a = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+        
+        auto minusOne = lift(a)
+            .map( []( int v ) { return v - 1; } );
+            
+        std::vector<int> squared = minusOne
+            .map( []( int v ) { return v * v; } )
+            .toVec(); 
+
+        CHECK_SAME_ELEMENTS( squared, std::vector<int> { 0, 1, 4, 9, 16, 25, 36, 49, 64 } );            
+         
+        // Re-enable when moving to g++ 4.8.1
+        /*   
+        std::vector<std::string> asString = minusOne
+            .map( []( int v ) { return boost::lexical_cast<std::string>(v); } )
+            .toVec(); 
+
+        for ( auto s : asString ) std::cout << "FOOT: " << s << std::endl;
+        BOOST_CHECK( asString.empty() );
+        */
+    }
+}
+
 void addTests( test_suite *t )
 {
     t->add( BOOST_TEST_CASE( test1 ) );
@@ -543,6 +604,7 @@ void addTests( test_suite *t )
     t->add( BOOST_TEST_CASE( testNonCopyable) );
     t->add( BOOST_TEST_CASE( testNestedReferences) );
     t->add( BOOST_TEST_CASE( testOptional ) );
+    t->add( BOOST_TEST_CASE( testIteratorAndIterable ) );
 }
 
 bool init()

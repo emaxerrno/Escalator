@@ -86,7 +86,7 @@ namespace navetas { namespace escalator {
 
         Optional& operator=(const T& val)
         {
-            //Support assignment to this->get()
+            // Support assignment to this->get()
             if(getPtr() == &val) return *this;
 
             reset();
@@ -95,7 +95,7 @@ namespace navetas { namespace escalator {
         }
         Optional& operator=(T&& val)
         {
-            //Support assignment to this->get()
+            // Support assignment to this->get()
             if(getPtr() == &val) return *this;
 
             reset();
@@ -260,9 +260,10 @@ namespace navetas { namespace escalator {
     class ConversionsBase : public Lifted
     {
     protected:
-        //BaseT always implements:
-        //ElT next();
-        //bool hasNext();
+        // BaseT always implements:
+        // getIterator(), which returns a type Iterator which implements:
+        //     ElT next();
+        //     bool hasNext();
         BaseT& get() { return static_cast<BaseT&>(*this); }
         
     public:
@@ -272,41 +273,47 @@ namespace navetas { namespace escalator {
         ContainerWrapper<std::vector<ElT>, ElT> toVec()
         {
             std::vector<ElT> t;
-            while ( get().hasNext() ) t.push_back( get().next() );
+            auto it = get().getIterator();
+            while ( it.hasNext() ) t.push_back( it.next() );
             return ContainerWrapper<std::vector<ElT>, ElT>( t );
         }
         
         template< class OutputIterator >
         void toContainer( OutputIterator v ) 
         {
-            while ( get().hasNext() ) *v++ = get().next();
+            auto it = get().getIterator();
+            while ( it.hasNext() ) *v++ = it.next();
         }
         
         ContainerWrapper<std::deque<ElT>, ElT> toDeque()
         {
             std::deque<ElT> t;
-            while ( get().hasNext() ) t.push_back( get().next() );
+            auto it = get().getIterator();
+            while ( it.hasNext() ) t.push_back( it.next() );
             return ContainerWrapper<std::deque<ElT>, ElT>(t);
         }
         
         ContainerWrapper<std::list<ElT>, ElT> toList()
         {
             std::list<ElT> t;
-            while ( get().hasNext() ) t.push_back( get().next() );
+            auto it = get().getIterator();
+            while ( it.hasNext() ) t.push_back( it.next() );
             return ContainerWrapper<std::list<ElT>, ElT>(t);
         }
         
         ContainerWrapper<std::set<ElT>, ElT> toSet()
         {
             std::set<ElT> t;
-            while ( get().hasNext() ) t.insert( get().next() );
+            auto it = get().getIterator();
+            while ( it.hasNext() ) t.insert( it.next() );
             return ContainerWrapper<std::set<ElT>, ElT>(t);
         }
         
         ContainerWrapper<std::multiset<ElT>, ElT> toMultiSet()
         {
             std::multiset<ElT> t;
-            while ( get().hasNext() ) t.insert( get().next() );
+            auto it = get().getIterator();
+            while ( it.hasNext() ) t.insert( it.next() );
             return ContainerWrapper<std::multiset<ElT>, ElT>(t);
         }
         
@@ -314,7 +321,8 @@ namespace navetas { namespace escalator {
         bool forall( FunctorT fn )
         {
             bool pred = true;
-            while ( pred && get().hasNext() ) pred &= fn( get().next() );
+            auto it = get().getIterator();
+            while ( pred && it.hasNext() ) pred &= fn( it.next() );
             return pred;
         }
         
@@ -322,7 +330,8 @@ namespace navetas { namespace escalator {
         bool exists( FunctorT fn )
         {
             bool pred = false;
-            while ( get().hasNext() ) pred |= fn( get().next() );
+            auto it = get().getIterator();
+            while ( it.hasNext() ) pred |= fn( it.next() );
             return pred;
         }
         
@@ -332,9 +341,10 @@ namespace navetas { namespace escalator {
         {
             std::pair<std::vector<ElT>, std::vector<ElT>> res;
             
-            while ( get().hasNext() )
+            auto it = get().getIterator();
+            while ( it.hasNext() )
             {
-                ElT val = std::move(get().next());
+                ElT val = std::move(it.next());
                 if ( fn(val) ) res.first.push_back( std::move(val) );
                 else res.second.push_back( std::move(val) );
             }
@@ -349,9 +359,10 @@ namespace navetas { namespace escalator {
             std::pair<std::vector<ElT>, std::vector<ElT>> res;
             
             bool inFirst = true;
-            while ( get().hasNext() )
+            auto it = get().getIterator();
+            while ( it.hasNext() )
             {
-                ElT val = get().next();
+                ElT val = it.next();
                 if ( !fn(val) ) inFirst = false;
                 
                 if ( inFirst ) res.first.push_back( std::move(val) );
@@ -371,12 +382,12 @@ namespace navetas { namespace escalator {
         template<typename FunctorT>
         MapWrapper<BaseT, FunctorT, ElT, typename FunctorHelper<FunctorT, ElT>::out_t> map( FunctorT fn )
         {
-            return MapWrapper<BaseT, FunctorT, ElT, typename FunctorHelper<FunctorT, ElT>::out_t>( std::move(get()), fn );
+            return MapWrapper<BaseT, FunctorT, ElT, typename FunctorHelper<FunctorT, ElT>::out_t>( get().getIterator(), fn );
         }
 
         CopyWrapper<BaseT, ElT> copyElements()
         {
-            return CopyWrapper<BaseT, ElT>( std::move(get()) );
+            return CopyWrapper<BaseT, ElT>( std::move(get().getIterator()) );
         }
         
         template<typename FromT, typename ToT>
@@ -396,14 +407,15 @@ namespace navetas { namespace escalator {
         template<typename FunctorT>
         FilterWrapper<BaseT, FunctorT, ElT> filter( FunctorT fn )
         {
-            return FilterWrapper<BaseT, FunctorT, ElT>( std::move(get()), fn );
+            return FilterWrapper<BaseT, FunctorT, ElT>( std::move(get().getIterator()), fn );
         }
         
         typedef MapWithStateWrapper<BaseT, std::function<std::pair<ElT, size_t>(const ElT&, size_t&)>, ElT, std::pair<ElT, size_t>, size_t> zipWithIndexWrapper_t;
         zipWithIndexWrapper_t zipWithIndex()
         {
+            auto it = get().getIterator();
             return zipWithIndexWrapper_t(
-                std::move(get()),
+                std::move(it),
                 []( const ElT& el, size_t& index ) { return std::make_pair( el, index++ ); },
                 0 );
         }
@@ -411,9 +423,10 @@ namespace navetas { namespace escalator {
         typedef MapWithStateWrapper<BaseT, std::function<std::tuple<ElT, ElT>( ElT, Optional<ElT>& state )>, ElT, std::tuple<ElT, ElT>, Optional<ElT>> sliding2_t;
         sliding2_t sliding2()
         {
-            Optional<ElT> startState( get().next() );
+            auto it = get().getIterator();
+            Optional<ElT> startState( it.next() );
             return sliding2_t(
-                std::move(get()),
+                std::move(it),
                 []( ElT el, Optional<ElT>& state )
                 {
                     std::tuple<ElT, ElT> tp = std::tuple<ElT, ElT>( state.get(), el );
@@ -468,9 +481,10 @@ namespace navetas { namespace escalator {
         template<typename FunctorT>
         void foreach( FunctorT fn )
         {
-            while ( get().hasNext() )
+            auto it = get().getIterator();
+            while ( it.hasNext() )
             {
-                fn( get().next() );
+                fn( it.next() );
             }
         }
         
@@ -481,9 +495,10 @@ namespace navetas { namespace escalator {
             typedef typename FunctorHelper<ValueFunctorT, ElT>::out_t value_type;
             
             std::map<key_t, std::vector<value_type>> grouped;
-            while ( get().hasNext() )
+            auto it = get().getIterator();
+            while ( it.hasNext() )
             {
-                auto v = get().next();
+                auto v = it.next();
                 auto key = keyFn(v);
                 grouped[std::move(key)].push_back( valueFn(std::move(v)) );
             }
@@ -498,9 +513,10 @@ namespace navetas { namespace escalator {
         {
             std::set<ElT> seen;
             std::vector<typename std::set<ElT>::iterator> ordering;
-            while ( get().hasNext() )
+            auto it = get().getIterator();
+            while ( it.hasNext() )
             {
-                auto res = seen.insert( std::move( get().next() ) );
+                auto res = seen.insert( std::move( it.next() ) );
                 if ( res.second ) ordering.push_back( res.first );
             }
             
@@ -520,9 +536,10 @@ namespace navetas { namespace escalator {
             //Same pattern as distinct above
             std::set<ElT, SetOrdering> seen( cmp );
             std::vector<typename std::set<ElT>::iterator> ordering;
-            while ( get().hasNext() )
+            auto it = get().getIterator();
+            while ( it.hasNext() )
             {
-                auto res = seen.insert( std::move( get().next() ) );
+                auto res = seen.insert( std::move( it.next() ) );
                 if ( res.second ) ordering.push_back( res.first );
             }
             
@@ -539,9 +556,10 @@ namespace navetas { namespace escalator {
         template<typename FunctorT, typename AccT>
         AccT fold( AccT init, FunctorT fn )
         {
-            while ( get().hasNext() )
+            auto it = get().getIterator();
+            while ( it.hasNext() )
             {
-                init = fn( std::move(init), std::move(get().next()) );
+                init = fn( std::move(init), std::move(it.next()) );
             }
             return init;
         }
@@ -551,33 +569,38 @@ namespace navetas { namespace escalator {
         zip( Source2T&& source2 )
         {
             typedef typename std::remove_reference<Source2T>::type Source2TNoRef;
+            auto it = get().getIterator();
             return ZipWrapper<BaseT
                              , ElT
                              , Source2TNoRef
-                             , typename Source2TNoRef::el_t>( std::move(get()), std::forward<Source2T>(source2) );
+                             , typename Source2TNoRef::el_t>( std::move(it), std::forward<Source2T>(source2) );
         }
         
         SliceWrapper<BaseT, ElT> slice( size_t from, size_t to, SliceBehavior behavior=RETURN_UPTO )
         {
-            return SliceWrapper<BaseT, ElT>( std::move(get()), from, to, behavior );
+            auto it = get().getIterator();
+            return SliceWrapper<BaseT, ElT>( std::move(it), from, to, behavior );
         }
         
         SliceWrapper<BaseT, ElT> drop( size_t num, SliceBehavior behavior=RETURN_UPTO )
         {
-            return SliceWrapper<BaseT, ElT>( std::move(get()), num, std::numeric_limits<size_t>::max(), behavior );
+            auto it = get().getIterator();
+            return SliceWrapper<BaseT, ElT>( std::move(it), num, std::numeric_limits<size_t>::max(), behavior );
         }
         
         SliceWrapper<BaseT, ElT> take( size_t num, SliceBehavior behavior=RETURN_UPTO )
         {
-            return SliceWrapper<BaseT, ElT>( std::move(get()), 0, num, behavior );
+            auto it = get().getIterator();
+            return SliceWrapper<BaseT, ElT>( std::move(it), 0, num, behavior );
         }
         
         size_t count()
         {
             size_t count = 0;
-            while ( get().hasNext() )
+            auto it = get().getIterator();
+            while ( it.hasNext() )
             {
-                get().next();
+                it.next();
                 count++;
             }
             return count;
@@ -585,24 +608,26 @@ namespace navetas { namespace escalator {
         
         value_type sum()
         {
-            ESCALATOR_ASSERT( get().hasNext(), "Mean over insufficient items" );
-            value_type acc = get().next();
-            while ( get().hasNext() )
+            auto it = get().getIterator();
+            ESCALATOR_ASSERT( it.hasNext(), "Mean over insufficient items" );
+            value_type acc = it.next();
+            while ( it.hasNext() )
             {
-                acc += get().next();
+                acc += it.next();
             }
             return acc;
         }
         
         value_type mean()
         {
-            ESCALATOR_ASSERT( get().hasNext(), "Mean over insufficient items" );
+            auto it = get().getIterator();
+            ESCALATOR_ASSERT( it.hasNext(), "Mean over insufficient items" );
             
             size_t count = 1;
-            value_type acc = get().next();
-            while ( get().hasNext() )
+            value_type acc = it.next();
+            while ( it.hasNext() )
             {
-                acc += get().next();
+                acc += it.next();
                 count++;
             }
             
@@ -611,11 +636,13 @@ namespace navetas { namespace escalator {
         
         value_type median()
         {
+            auto it = get().getIterator();
+            
             std::vector<ElT> values;
             size_t count = 0;
-            while ( get().hasNext() )
+            while ( it.hasNext() )
             {
-                values.push_back( get().next() );
+                values.push_back( it.next() );
                 count++;
             }
             std::sort( values.begin(), values.end() );
@@ -637,12 +664,13 @@ namespace navetas { namespace escalator {
             value_type ext = value_type();
             
             size_t minIndex = 0;
-            for ( int i = 0; get().hasNext(); ++i )
+            auto it = get().getIterator();
+            for ( int i = 0; it.hasNext(); ++i )
             {
-                if ( init ) ext = std::move(get().next());
+                if ( init ) ext = std::move(it.next());
                 else
                 {
-                    auto n = std::move(get().next());
+                    auto n = std::move(it.next());
                     if ( n < ext )
                     {
                         ext = std::move(n);
@@ -660,12 +688,13 @@ namespace navetas { namespace escalator {
             value_type ext = value_type();
             
             size_t maxIndex = 0;
-            for ( int i = 0; get().hasNext(); ++i )
+            auto it = get().getIterator();
+            for ( int i = 0; it.hasNext(); ++i )
             {
-                if ( init ) ext = std::move(get().next());
+                if ( init ) ext = std::move(it.next());
                 else
                 {
-                    auto n = std::move(get().next());
+                    auto n = std::move(it.next());
                     if ( n > ext )
                     {
                         ext = std::move(n);
@@ -684,10 +713,11 @@ namespace navetas { namespace escalator {
         {
             std::stringstream ss;
             bool init = true;
-            while ( get().hasNext() )
+            auto it = get().getIterator();
+            while ( it.hasNext() )
             {
                 if ( !init ) ss << sep;
-                auto val = std::move(get().next());
+                auto val = std::move(it.next());
                 ss << static_cast<const value_type&>(val);
                 init = false;
             }
@@ -710,9 +740,10 @@ namespace navetas { namespace escalator {
         {
             std::map<El1T, El2T> t;
             // NOTE: without the 'this->', Clang claims that 'get' is undeclared. Gcc makes a similar claim.
-            while ( this->get().hasNext() )
+            auto it = this->get().getIterator();
+            while ( it.hasNext() )
             {
-                auto n = std::move(this->get().next());
+                auto n = std::move(it.next());
                 t[std::move(std::get<0>(n))] = std::move(std::get<1>(n));
             }
             return t;
@@ -722,9 +753,10 @@ namespace navetas { namespace escalator {
         {
             std::multimap<El1T, El2T> t;
             // NOTE: without the 'this->', Clang claims that 'get' is undeclared. Gcc makes a similar claim.
-            while ( this->get().hasNext() )
+            auto it = this->get().getIterator();
+            while ( it.hasNext() )
             {
-                auto n = std::move(this->get().next());
+                auto n = std::move(it.next());
                 t.insert( std::make_pair(std::move(std::get<0>(n)), std::move(std::get<1>(n)) ) );
             }
             return t;
@@ -738,7 +770,7 @@ namespace navetas { namespace escalator {
         template<typename FunctorT>
         FlatMapWrapper<BaseT, FunctorT, ElT, typename ElT::el_t, typename FunctorHelper<FunctorT, typename ElT::el_t>::out_t> flatMap( FunctorT fn )
         {
-            return FlatMapWrapper<BaseT, FunctorT, ElT, typename ElT::el_t, typename FunctorHelper<FunctorT, typename ElT::el_t>::out_t>( std::move(this->get()), fn );
+            return FlatMapWrapper<BaseT, FunctorT, ElT, typename ElT::el_t, typename FunctorHelper<FunctorT, typename ElT::el_t>::out_t>( std::move(this->get().getIterator()), fn );
         }
 
         template<typename T>
@@ -750,7 +782,7 @@ namespace navetas { namespace escalator {
         
         FlatMapWrapper<BaseT, Identity<typename ElT::el_t>, ElT, typename ElT::el_t, typename ElT::el_t> flatten()
         {
-            return FlatMapWrapper<BaseT, Identity<typename ElT::el_t>, ElT, typename ElT::el_t, typename ElT::el_t>( std::move(this->get()), Identity<typename ElT::el_t>() );
+            return FlatMapWrapper<BaseT, Identity<typename ElT::el_t>, ElT, typename ElT::el_t, typename ElT::el_t>( std::move(this->get().getIterator()), Identity<typename ElT::el_t>() );
         }
     };
     
@@ -759,19 +791,23 @@ namespace navetas { namespace escalator {
     {
     };
     
+    
     template<typename Source, typename FunctorT, typename ElT>
     class FilterWrapper : public Conversions<FilterWrapper<Source, FunctorT, ElT>, ElT>
     {
     public:
-        FilterWrapper( const Source& source, FunctorT fn ) : m_source(source), m_fn(fn)
+        FilterWrapper( const typename Source::Iterator& source, FunctorT fn ) : m_source(source), m_fn(fn)
         {
             populateNext();
         }
 
-        FilterWrapper( Source&& source, FunctorT fn ) : m_source(std::move(source)), m_fn(fn)
+        FilterWrapper( typename Source::Iterator && source, FunctorT fn ) : m_source(std::move(source)), m_fn(fn)
         {
             populateNext();
         }
+        
+        typedef FilterWrapper<Source, FunctorT, ElT> Iterator;
+        Iterator& getIterator() { return *this; }
 
         ElT next()
         {
@@ -798,19 +834,22 @@ namespace navetas { namespace escalator {
         }
     
     private:
-        Source                  m_source;
-        FunctorT                m_fn;
-        Optional<ElT>           m_next;
+        typename Source::Iterator   m_source;
+        FunctorT                    m_fn;
+        Optional<ElT>               m_next;
     };
 
     template<typename Source, typename FunctorT, typename InnerT, typename InputT, typename ElT>
     class FlatMapWrapper : public Conversions<FlatMapWrapper<Source, FunctorT, InnerT, InputT, ElT>, ElT>
     {
     public:
-        FlatMapWrapper( const Source& source, FunctorT fn ) : m_source(source), m_fn(fn)
+        FlatMapWrapper( const typename Source::Iterator& source, FunctorT fn ) : m_source(source), m_fn(fn)
         {
             populateNext();
         }
+        
+        typedef FlatMapWrapper<Source, FunctorT, InnerT, InputT, ElT> Iterator;
+        Iterator& getIterator() { return *this; }
 
         ElT next()
         {
@@ -825,23 +864,27 @@ namespace navetas { namespace escalator {
         void populateNext()
         {
             m_next.reset();
-            while ( (!m_inner || !m_inner->hasNext()) && m_source.hasNext() )
+            while ( (!m_innerIt || !m_innerIt->hasNext()) && m_source.hasNext() )
             {
+                // We need to take ownership of the inner object as well as its
+                // iterator as otherwise the iterator may be a dangling pointer
                 m_inner = std::move(m_source.next());
+                m_innerIt = m_inner->getIterator();
             }
             
-            if ( m_inner && m_inner->hasNext() )
+            if ( m_innerIt && m_innerIt->hasNext() )
             {
-                m_next = std::move(m_inner->next());
+                m_next = std::move(m_innerIt->next());
             }
         }
     
     private:
         typedef std::function<ElT(InputT)> FunctorHolder_t;
-        Source                      m_source;
-        FunctorHolder_t             m_fn;
-        Optional<InnerT>            m_inner;
-        Optional<InputT>            m_next;
+        typename Source::Iterator           m_source;
+        FunctorHolder_t                     m_fn;
+        Optional<InnerT>                    m_inner;
+        Optional<typename InnerT::Iterator> m_innerIt;
+        Optional<InputT>                    m_next;
     };
 
     template<typename Source, typename InputT>
@@ -851,12 +894,14 @@ namespace navetas { namespace escalator {
     private:
         typedef CopyWrapper<Source, InputT> self_t;
     public:
-        CopyWrapper( const Source& source ) : m_source(source) {}
-        CopyWrapper( Source&& source ) : m_source(std::move(source)) {}
+        CopyWrapper( const typename Source::Iterator& source ) : m_source(source) {}
+        CopyWrapper( typename Source::Iterator&& source ) : m_source(std::move(source)) {}
+        typedef CopyWrapper<Source, InputT> Iterator;
+        Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source.hasNext(); }
         typename std::remove_const<typename InputT::type>::type next() { return m_source.next(); }
     private:
-        Source m_source;
+        typename Source::Iterator m_source;
     };
 
     template<typename Source, typename FunctorT, typename InputT, typename ElT>
@@ -865,44 +910,50 @@ namespace navetas { namespace escalator {
     private:
         typedef MapWrapper<Source, FunctorT, InputT, ElT> self_t;
     public:
-        MapWrapper( const Source& source, FunctorT fn ) : m_source(source), m_fn(fn)
+        MapWrapper( const typename Source::Iterator& source, FunctorT fn ) : m_source(source), m_fn(fn)
         {
         }
 
-        MapWrapper( Source&& source, FunctorT fn ) : m_source(std::move(source)), m_fn(fn)
+        MapWrapper( typename Source::Iterator&& source, FunctorT fn ) : m_source(std::move(source)), m_fn(fn)
         {
         }
 
+        typedef MapWrapper<Source, FunctorT, InputT, ElT> Iterator;
+        Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source.hasNext(); }
         ElT next() { return m_fn( std::move(m_source.next()) ); }
     
     private:
         typedef std::function<ElT(InputT)> FunctorHolder_t;
     
-        Source              m_source;
-        FunctorHolder_t     m_fn;
+        typename Source::Iterator   m_source;
+        FunctorHolder_t             m_fn;
     };
     
     template<typename Source1T, typename El1T, typename Source2T, typename El2T>
     class ZipWrapper : public Conversions<ZipWrapper<Source1T, El1T, Source2T, El2T>, std::tuple<El1T, El2T>>
     {
     public:
-        ZipWrapper( const Source1T& source1, const Source2T& source2 ) : m_source1(source1)
-                                                                       , m_source2(source2)
+        ZipWrapper( const typename Source1T::Iterator& source1, const typename Source2T::Iterator& source2 ) :
+            m_source1(source1),
+            m_source2(source2)
         {
         }
         
-        ZipWrapper( Source1T&& source1, Source2T&& source2 ) : m_source1(std::move(source1))
-                                                             , m_source2(std::move(source2))
+        ZipWrapper( typename Source1T::Iterator&& source1, typename Source2T::Iterator&& source2 ) :
+            m_source1(std::move(source1)),
+            m_source2(std::move(source2))
         {
         }
 
+        typedef ZipWrapper<Source1T, El1T, Source2T, El2T> Iterator;
+        Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source1.hasNext() && m_source2.hasNext(); }
         std::tuple<El1T, El2T> next() { return std::make_tuple( std::move(m_source1.next()), std::move(m_source2.next()) ); }
         
     private:
-        Source1T m_source1;
-        Source2T m_source2;
+        typename Source1T::Iterator m_source1;
+        typename Source2T::Iterator m_source2;
     };
     
     template<typename Source, typename FunctorT, typename InputT, typename ElT, typename StateT>
@@ -911,21 +962,23 @@ namespace navetas { namespace escalator {
     public:
         typedef MapWithStateWrapper<Source, FunctorT, InputT, ElT, StateT> self_t;
         
-        MapWithStateWrapper( const Source& source, FunctorT fn, StateT state ) : m_source(source), m_fn(fn), m_state(state)
+        MapWithStateWrapper( const typename Source::Iterator& source, FunctorT fn, StateT state ) : m_source(source), m_fn(fn), m_state(state)
         {
         }
 
-        MapWithStateWrapper( Source&& source, FunctorT fn, StateT state ) : m_source(std::move(source)), m_fn(fn), m_state(state)
+        MapWithStateWrapper( typename Source::Iterator&& source, FunctorT fn, StateT state ) : m_source(std::move(source)), m_fn(fn), m_state(state)
         {
         }
         
+        typedef MapWithStateWrapper<Source, FunctorT, InputT, ElT, StateT> Iterator;
+        Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source.hasNext(); }
         ElT next() { return m_fn( std::move(m_source.next()), m_state ); }
     
     private:
-        Source      m_source;
-        FunctorT    m_fn;
-        StateT      m_state;
+        typename Source::Iterator   m_source;
+        FunctorT                    m_fn;
+        StateT                      m_state;
     };
 
     /**
@@ -953,6 +1006,8 @@ namespace navetas { namespace escalator {
         {
         }
         
+        typedef IteratorWrapper<ElT, IterT> Iterator;
+        Iterator& getIterator() { return *this; }
         bool hasNext()
         {
             return m_iter != m_end;
@@ -973,18 +1028,20 @@ namespace navetas { namespace escalator {
     class SliceWrapper : public Conversions<SliceWrapper<SourceT, ElT>, ElT>
     {
     public:
-        SliceWrapper( const SourceT& source, size_t from, size_t to, SliceBehavior behavior )
+        SliceWrapper( const typename SourceT::Iterator& source, size_t from, size_t to, SliceBehavior behavior )
             : m_source(source), m_from(from), m_to(to), m_count(0), m_behavior( behavior )
         {
             initiate(from, to, behavior);
         }
 
-        SliceWrapper( SourceT&& source, size_t from, size_t to, SliceBehavior behavior )
+        SliceWrapper( typename SourceT::Iterator&& source, size_t from, size_t to, SliceBehavior behavior )
             : m_source(std::move(source)), m_from(from), m_to(to), m_count(0), m_behavior( behavior )
         {
             initiate(from, to, behavior);
         }
 
+        typedef SliceWrapper<SourceT, ElT> Iterator;
+        Iterator& getIterator() { return *this; }
         bool hasNext()
         {
             if(m_count==m_to) return false;
@@ -1028,11 +1085,11 @@ namespace navetas { namespace escalator {
             }
         }
         
-        SourceT     m_source;
-        size_t      m_from;
-        size_t      m_to;
-        size_t      m_count;
-        SliceBehavior m_behavior;
+        typename SourceT::Iterator  m_source;
+        size_t                      m_from;
+        size_t                      m_to;
+        size_t                      m_count;
+        SliceBehavior               m_behavior;
     };
     
     template<typename Container, typename ElT>
@@ -1041,11 +1098,11 @@ namespace navetas { namespace escalator {
     public:
         typedef typename Container::iterator iterator;
         
-        ContainerWrapper( Container&& data ) : m_data(std::move(data)), m_iter(m_data.begin()), m_end(m_data.end()), m_counter(0)
+        ContainerWrapper( Container&& data ) : m_data(std::move(data))
         {
         }
         
-        ContainerWrapper( const Container& data ) : m_data(data), m_iter(m_data.begin()), m_end(m_data.end()), m_counter(0)
+        ContainerWrapper( const Container& data ) : m_data(data)
         {
         }
         
@@ -1054,43 +1111,17 @@ namespace navetas { namespace escalator {
 
         //When copying, copy data that is left to be consumed only
         //Then new object delivers all data in its container
-        ContainerWrapper( const ContainerWrapper& other )
+        ContainerWrapper( const ContainerWrapper& other ) : m_data(other.m_data)
         {
-            for( iterator it = other.m_iter; it != other.m_end; it++ )
-            {
-                m_data.push_back( *it );
-            }
-
-            m_iter = m_data.begin();
-            m_end = m_data.end();
-            m_counter = 0;
         }
 
         ContainerWrapper( ContainerWrapper&& other ) : m_data(std::move(other.m_data))
-                                                     , m_iter(m_data.begin())
-                                                     , m_end(m_data.end())
-                                                     , m_counter(other.m_counter)
         {
-            for(size_t i=0; i<m_counter; i++)
-            {
-                m_iter++;
-            }
         }
 
         ContainerWrapper& operator=( const ContainerWrapper& other )
         {
-            m_data.clear();
-
-            for( iterator it = other.m_iter; it != other.m_end; it++ )
-            {
-                m_data.push_back( *it );
-            }
-
-            m_iter = m_data.begin();
-            m_end = m_data.end();
-            m_counter = 0;
-
-            return *this;
+            m_data = other.m_data;
         }
 
         ContainerWrapper& operator=( ContainerWrapper&& other )
@@ -1098,42 +1129,42 @@ namespace navetas { namespace escalator {
             //Can't move into the already existing m_data
             //Move elements individually
             m_data.clear();
-
-            for( iterator it = other.m_iter; it != other.m_end; it++ )
-            {
-                m_data.push_back( std::move(*it) );
-            }
-
-            m_iter = m_data.begin();
-            m_end = m_data.end();
-            m_counter = 0;
-
+            m_data = std::move(other.m_data);
             return *this;
         }
         
-        bool hasNext()
+        class Iterator
         {
-            return m_iter != m_end;
-        }
+        public:
+            Iterator( const iterator& begin, const iterator& end ) : m_iter(begin), m_end(end)
+            {
+            }
+            
+            bool hasNext()
+            {
+                return m_iter != m_end;
+            }
+            
+            ElT& next()
+            {
+                ESCALATOR_ASSERT( m_iter != m_end, "Iterator exhausted" );
+                iterator curr = m_iter++;
+                return *curr;
+            }
+            
+        private:
+            iterator        m_iter;
+            const iterator  m_end;
+        };
         
-        ElT& next()
-        {
-            ESCALATOR_ASSERT( m_iter != m_end, "Iterator exhausted" );
-            iterator curr = m_iter++;
-            m_counter++;
-            return *curr;
-        }
+        Iterator getIterator() { return Iterator(m_data.begin(), m_data.end()); }
+        
         
         operator const Container&() { return m_data; }
         const Container& get() { return m_data; }
         
     protected:
         Container       m_data;
-        iterator        m_iter;
-        iterator        m_end;
-        //Track how many have been consumed to aid
-        //the move constructor
-        size_t          m_counter;
     };
 
     class Counter : public Conversions<Counter, int>
@@ -1141,6 +1172,8 @@ namespace navetas { namespace escalator {
     public:
         Counter() : m_count(0) {}
         
+        typedef Counter Iterator;
+        Iterator& getIterator() { return *this; }
         bool hasNext() { return true; }
         
         int next()
@@ -1152,12 +1185,14 @@ namespace navetas { namespace escalator {
         int m_count;
     };
 
-    template< typename StreamT >
+    template<typename StreamT>
     class StreamWrapper : public Conversions<StreamWrapper<StreamT>, typename StreamT::value_type>
     {
     public:
         StreamWrapper( StreamT& stream ) : m_stream(stream) {}
         
+        typedef StreamWrapper<StreamT> Iterator;
+        Iterator& getIterator() { return *this; }
         bool hasNext() { return !m_stream.eof(); }
         
         typename StreamT::value_type next()
@@ -1169,20 +1204,22 @@ namespace navetas { namespace escalator {
         StreamT&       m_stream;
     };
 
-    template< typename OptionalT >
-    class OptionalWrapper : public Conversions<OptionalWrapper<OptionalT>, typename OptionalT::value_type>
+    template<typename ValueT>
+    class OptionalWrapper : public Conversions<OptionalWrapper<ValueT>, typename ValueT::value_type>
     {
     public:
-        OptionalWrapper( OptionalT&& op ) : m_op( std::move(op) ) {}
+        OptionalWrapper( ValueT&& op ) : m_op( std::move(op) ) {}
+        typedef OptionalWrapper<ValueT> Iterator;
+        Iterator& getIterator() { return *this; }
         bool hasNext() { return m_op; }
-        typename OptionalT::value_type next()
+        typename ValueT::value_type next()
         {
-            typename OptionalT::value_type val = std::move(m_op.get());
+            typename ValueT::value_type val = std::move(m_op.get());
             m_op.reset();
             return val;
         }
     private:
-        OptionalT m_op;
+        ValueT m_op;
     };
 
     class IStreamWrapper : public Conversions<IStreamWrapper, std::string>
@@ -1193,8 +1230,9 @@ namespace navetas { namespace escalator {
             populateNext();
         }
         
+        typedef IStreamWrapper Iterator;
+        Iterator& getIterator() { return *this; }
         bool hasNext() { return m_hasNext; }
-        
         std::string next()
         {
             std::string curr = std::move(m_currLine);
