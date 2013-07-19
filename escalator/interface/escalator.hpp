@@ -1271,7 +1271,7 @@ namespace navetas { namespace escalator {
             .map( []( const std::pair<ElT, size_t>& v ) { return std::get<1>(v); } )
             .zipWithIndex()
             .map( []( const std::pair<size_t, size_t>& v ) { return std::abs( static_cast<double>( std::get<0>(v) ) - static_cast<double>( std::get<1>(v) ) ); } )
-            .toVec();
+            .template lower<std::vector>();
             
         double scale = static_cast<double>(res.size() * res.size()) / 2.0;
         
