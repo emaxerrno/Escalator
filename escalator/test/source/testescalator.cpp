@@ -190,6 +190,12 @@ void test1()
     CHECK_SAME_ELEMENTS( grouped[4], std::vector<std::string> { "Z" } );
     
     std::vector<double> c = { 1.0, 2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 4.9, 4.9, 5.2, 4.9, 4.9, 5.2, 9.0, 5.0 };
+    
+    BOOST_CHECK_EQUAL( lift(c).toVec().count(), 15 );
+    BOOST_CHECK_EQUAL( lift(c).toList().count(), 15 );
+    BOOST_CHECK_EQUAL( lift(c).toDeque().count(), 15 );
+    BOOST_CHECK_EQUAL( lift(c).toSet().count(), 11 );
+    
     BOOST_CHECK_CLOSE( lift(c).mean(), 5.0, 1e-6 );
     BOOST_CHECK_CLOSE( lift(c).median(), 4.9, 1e-6 );
     

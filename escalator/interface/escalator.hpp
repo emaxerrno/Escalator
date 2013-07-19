@@ -1109,8 +1109,8 @@ namespace navetas { namespace escalator {
         operator const Container&() const { return m_data; }
         //operator Container&&() { return std::move(m_data); }
 
-        //When copying, copy data that is left to be consumed only
-        //Then new object delivers all data in its container
+        // When copying, copy data that is left to be consumed only
+        // Then new object delivers all data in its container
         ContainerWrapper( const ContainerWrapper& other ) : m_data(other.m_data)
         {
         }
@@ -1126,8 +1126,8 @@ namespace navetas { namespace escalator {
 
         ContainerWrapper& operator=( ContainerWrapper&& other )
         {
-            //Can't move into the already existing m_data
-            //Move elements individually
+            // Can't move into the already existing m_data
+            // Move elements individually
             m_data.clear();
             m_data = std::move(other.m_data);
             return *this;
@@ -1145,7 +1145,7 @@ namespace navetas { namespace escalator {
                 return m_iter != m_end;
             }
             
-            ElT& next()
+            typename iterator::reference next()
             {
                 ESCALATOR_ASSERT( m_iter != m_end, "Iterator exhausted" );
                 iterator curr = m_iter++;
