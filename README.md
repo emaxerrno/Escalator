@@ -101,10 +101,10 @@ std::vector<int> res = lift(iss)
     .map( []( const std::string& line )
     {
         auto els = lift(line).split(",").toVec();
-        std::vector<int> numEls = els.map( []( const std::string& el )
+        auto numEls = els.map( []( const std::string& el )
         {
             return boost::lexical_cast<int>( lift(el).trim().toString() );
-        } ).toVec();
+        } ).lower<std::vector>();
         return numEls[1];
     } )
     .lower<std::vector>();
