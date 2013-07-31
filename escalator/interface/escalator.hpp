@@ -389,10 +389,10 @@ namespace navetas { namespace escalator {
         
         // TODO: This should probably be lazy
         template<typename FunctorT>
-        std::vector<ElT> takeWhile( FunctorT fn ) { return partitionWhile(fn).first; }
+        ContainerWrapper<std::vector<ElT>, ElT> takeWhile( FunctorT fn ) { return ContainerWrapper<std::vector<ElT>, ElT>( partitionWhile(fn).first ); }
         
         template<typename FunctorT>
-        std::vector<ElT> dropWhile( FunctorT fn ) { return partitionWhile(fn).second; }
+        ContainerWrapper<std::vector<ElT>, ElT> dropWhile( FunctorT fn ) { return ContainerWrapper<std::vector<ElT>, ElT>( partitionWhile(fn).second ); }
         
         template<typename FunctorT>
         MapWrapper<BaseT, FunctorT, ElT, typename FunctorHelper<FunctorT, ElT>::out_t> map( FunctorT fn )
@@ -504,7 +504,10 @@ namespace navetas { namespace escalator {
         }
         
         template<typename KeyFunctorT, typename ValueFunctorT>
-        auto groupBy( KeyFunctorT keyFn, ValueFunctorT valueFn ) -> std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>
+        auto groupBy( KeyFunctorT keyFn, ValueFunctorT valueFn ) ->
+            ContainerWrapper<
+                std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>,
+                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>>
         {
             typedef typename FunctorHelper<KeyFunctorT, ElT>::out_t key_t;
             typedef typename FunctorHelper<ValueFunctorT, ElT>::out_t value_type;
@@ -518,7 +521,10 @@ namespace navetas { namespace escalator {
                 grouped[std::move(key)].push_back( valueFn(std::move(v)) );
             }
             
-            return grouped;
+            return ContainerWrapper<
+                std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>,
+                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>>
+                (grouped);
         }
         
         // TODO : Note that this forces evaluation of the input stream
@@ -584,11 +590,12 @@ namespace navetas { namespace escalator {
         zip( Source2T&& source2 )
         {
             typedef typename std::remove_reference<Source2T>::type Source2TNoRef;
-            auto it = get().getIterator();
+            auto it1 = get().getIterator();
+            auto it2 = source2.getIterator();
             return ZipWrapper<BaseT
                              , ElT
                              , Source2TNoRef
-                             , typename Source2TNoRef::el_t>( std::move(it), std::forward<Source2T>(source2) );
+                             , typename Source2TNoRef::el_t>( std::move(it1), std::move(it2) );
         }
         
         SliceWrapper<BaseT, ElT> slice( size_t from, size_t to, SliceBehavior behavior=RETURN_UPTO )

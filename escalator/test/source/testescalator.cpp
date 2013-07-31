@@ -53,6 +53,11 @@ void test1()
     auto z = lift(res2).zip(lift(q)).lower<std::vector>();
     BOOST_CHECK_EQUAL( z.size(), 4 );
     
+    {
+        auto tmp = lift(res2).retain<std::vector>().zip( lift(q).retain<std::vector>() ).lower<std::vector>();
+        BOOST_CHECK_EQUAL( tmp.size(), 4 );
+    }
+    
     CHECK_SAME_ELEMENTS( res2, std::set<int> { 1, 2, 3, 4 } );
     
     std::vector<std::pair<int, int>> foo = lift(a).copyElements().zip( lift(a).copyElements() ).retain<std::vector>();
@@ -170,10 +175,11 @@ void test1()
         std::make_pair( 3, "Y" )
     };
     
-    std::map<int, std::vector<std::string>> grouped = lift(b)
+    auto grouped = lift(b)
         .groupBy(
             []( const std::pair<int, std::string>& v ) { return v.first; },
-            []( const std::pair<int, std::string>& v ) -> std::string { return v.second; } );
+            []( const std::pair<int, std::string>& v ) -> std::string { return v.second; } )
+        .lower<std::map>();
             
     std::map<int, std::string> mv = lift(b).copyElements().lower<std::map>();
     BOOST_REQUIRE_EQUAL( mv.size(), 4 );
@@ -184,6 +190,7 @@ void test1()
     
     std::multimap<int, std::string> mmv = lift(b).copyElements().lower<std::multimap>();
     BOOST_REQUIRE_EQUAL( mmv.size(), 10 );
+        
         
     BOOST_REQUIRE_EQUAL( grouped.size(), 4 );
     CHECK_SAME_ELEMENTS( grouped[1], std::vector<std::string> { "B", "C", "A" } );
