@@ -527,6 +527,36 @@ namespace navetas { namespace escalator {
                 (grouped);
         }
         
+        template<typename KeyFunctorT>
+        auto countBy( KeyFunctorT keyFn ) ->
+            ContainerWrapper<
+                std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>,
+                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>>
+        {
+            typedef typename FunctorHelper<KeyFunctorT, ElT>::out_t key_t;
+            
+            std::map<key_t, size_t> counts;
+            auto it = get().getIterator();
+            while ( it.hasNext() )
+            {
+                auto v = it.next();
+                auto key = keyFn(v);
+                auto findIt = counts.find( key );
+                if ( findIt == counts.end() )
+                {
+                    counts.insert( std::make_pair(key, 1) );
+                }
+                else
+                {
+                    findIt->second += 1;
+                }
+            }
+            
+            return ContainerWrapper<
+                std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>,
+                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>>( counts );
+        }
+        
         // TODO : Note that this forces evaluation of the input stream
         // TODO: distinct should be wrappable into distinctWith using
         // std::less

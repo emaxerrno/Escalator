@@ -175,11 +175,7 @@ void test1()
         std::make_pair( 3, "Y" )
     };
     
-    auto grouped = lift(b)
-        .groupBy(
-            []( const std::pair<int, std::string>& v ) { return v.first; },
-            []( const std::pair<int, std::string>& v ) -> std::string { return v.second; } )
-        .lower<std::map>();
+    
             
     std::map<int, std::string> mv = lift(b).copyElements().lower<std::map>();
     BOOST_REQUIRE_EQUAL( mv.size(), 4 );
@@ -190,6 +186,12 @@ void test1()
     
     std::multimap<int, std::string> mmv = lift(b).copyElements().lower<std::multimap>();
     BOOST_REQUIRE_EQUAL( mmv.size(), 10 );
+    
+    auto grouped = lift(b)
+        .groupBy(
+            []( const std::pair<int, std::string>& v ) { return v.first; },
+            []( const std::pair<int, std::string>& v ) -> std::string { return v.second; } )
+        .lower<std::map>();
         
         
     BOOST_REQUIRE_EQUAL( grouped.size(), 4 );
@@ -197,6 +199,15 @@ void test1()
     CHECK_SAME_ELEMENTS( grouped[2], std::vector<std::string> { "D", "A", "B", "C" } );
     CHECK_SAME_ELEMENTS( grouped[3], std::vector<std::string> { "X", "Y" } );
     CHECK_SAME_ELEMENTS( grouped[4], std::vector<std::string> { "Z" } );
+    
+    auto counts = lift(b)
+        .countBy( []( const std::pair<int, std::string>& v ) { return v.first; } )
+        .lower<std::map>();
+    BOOST_REQUIRE_EQUAL( counts.size(), 4 );
+    BOOST_CHECK_EQUAL( counts[1], 3 );
+    BOOST_CHECK_EQUAL( counts[2], 4 );
+    BOOST_CHECK_EQUAL( counts[3], 2 );
+    BOOST_CHECK_EQUAL( counts[4], 1 );
     
     std::vector<double> c = { 1.0, 2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 4.9, 4.9, 5.2, 4.9, 4.9, 5.2, 9.0, 5.0 };
     
