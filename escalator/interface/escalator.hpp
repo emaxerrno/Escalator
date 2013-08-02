@@ -439,7 +439,8 @@ namespace navetas { namespace escalator {
         sliding2_t sliding2()
         {
             auto it = get().getIterator();
-            Optional<ElT> startState( it.next() );
+            Optional<ElT> startState;
+            if ( it.hasNext() ) startState = it.next();
             return sliding2_t(
                 std::move(it),
                 []( ElT el, Optional<ElT>& state )
