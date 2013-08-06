@@ -89,6 +89,25 @@ void test1()
         
     BOOST_CHECK_EQUAL( res6.size(), 4 );
     CHECK_SAME_ELEMENTS( res6, std::vector<int> { 1, 4, 4, 2 } );
+
+
+    {
+        std::vector<int> foo = {};
+        auto res = lift(foo)
+            .sliding2()
+            .lower<std::vector>();
+            
+        BOOST_REQUIRE_EQUAL( res.size(), 0 );
+    }
+    
+    {
+        std::vector<int> foo = { 1 };
+        auto res = lift(foo)
+            .sliding2()
+            .lower<std::vector>();
+            
+        BOOST_REQUIRE_EQUAL( res.size(), 0 );
+    }
     
     std::vector<int> res7 = lift(a)
         .sliding2()
