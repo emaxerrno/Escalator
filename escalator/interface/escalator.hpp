@@ -689,6 +689,7 @@ namespace navetas { namespace escalator {
         value_type median()
         {
             auto it = get().getIterator();
+            ESCALATOR_ASSERT( it.hasNext(), "Median over insufficient items" );
             
             std::vector<ElT> values;
             size_t count = 0;

@@ -346,6 +346,24 @@ void test3()
     }
     
     {
+        std::vector<int> foo = {};
+        auto res = lift(foo)
+            .sliding2()
+            .lower<std::vector>();
+            
+        BOOST_REQUIRE_EQUAL( res.size(), 0 );
+    }
+    
+    {
+        std::vector<int> foo = { 1 };
+        auto res = lift(foo)
+            .sliding2()
+            .lower<std::vector>();
+            
+        BOOST_REQUIRE_EQUAL( res.size(), 0 );
+    }
+    
+    {
         std::vector<int> foo = { 1, 2, 3, 4, 5 };
         mlift(foo)
             .map( []( int& a ) { return &a; } )
