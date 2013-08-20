@@ -320,6 +320,13 @@ namespace navetas { namespace escalator {
             while ( it.hasNext() ) *v++ = it.next();
         }
         
+        template<typename ElementCheckType>
+        BaseT& checkElementType()
+        {
+            static_assert( std::is_same<ElementCheckType, ElT>::value, "Element type does not match requirements" );
+            return get();
+        }
+        
         template<template<typename, typename ...> class Container>
         typename ConversionHelper<ElT, Container>::ContainerType lower()
         {
@@ -1118,7 +1125,7 @@ namespace navetas { namespace escalator {
     };
     
     template<typename Container, typename ElT>
-    class ContainerWrapper : public Conversions<ContainerWrapper<Container, ElT>, ElT>
+    class ContainerWrapper : public Conversions<ContainerWrapper<Container, ElT>, WrappedContainerVRef<Container>>
     {
     public:
         typedef typename Container::iterator iterator;
@@ -1158,7 +1165,7 @@ namespace navetas { namespace escalator {
             return *this;
         }
         
-        class Iterator
+        /*class Iterator
         {
         public:
             Iterator( const iterator& begin, const iterator& end ) : m_iter(begin), m_end(end)
@@ -1182,8 +1189,11 @@ namespace navetas { namespace escalator {
             const iterator  m_end;
         };
         
-        Iterator getIterator() { return Iterator(m_data.begin(), m_data.end()); }
+        Iterator getIterator() { return Iterator(m_data.begin(), m_data.end()); }*/
         
+        typedef IteratorWrapper<WrappedContainerVRef<Container>, typename Container::iterator> Iterator;
+        
+        Iterator getIterator() { return Iterator( m_data.begin(), m_data.end() ); }
         
         operator const Container&() { return m_data; }
         const Container& get() const { return m_data; }
