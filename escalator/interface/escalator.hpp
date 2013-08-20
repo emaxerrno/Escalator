@@ -286,7 +286,7 @@ namespace navetas { namespace escalator {
         {
             ContainerType t;
             while ( it.hasNext() ) t.insert( t.end(), it.next() );
-            return std::move(t);
+            return t;
         }
         
         template<typename InputIterator>
@@ -323,13 +323,13 @@ namespace navetas { namespace escalator {
         template<template<typename, typename ...> class Container>
         typename ConversionHelper<ElT, Container>::ContainerType lower()
         {
-            return std::move( ConversionHelper<ElT, Container>::lower( get().getIterator() ) );
+            return ConversionHelper<ElT, Container>::lower( get().getIterator() );
         }
         
         template<template<typename, typename ...> class Container>
         ContainerWrapper<typename ConversionHelper<ElT, Container>::ContainerType, ElT> retain()
         {
-            return std::move( ConversionHelper<ElT, Container>::retain( get().getIterator() ) );
+            return ConversionHelper<ElT, Container>::retain( get().getIterator() );
         }
         
         template<typename FunctorT>
@@ -359,9 +359,9 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             while ( it.hasNext() )
             {
-                ElT val = std::move(it.next());
-                if ( fn(val) ) res.first.push_back( std::move(val) );
-                else res.second.push_back( std::move(val) );
+                ElT val = it.next();
+                if ( fn(val) ) res.first.push_back( val );
+                else res.second.push_back( val );
             }
             
             return res;
@@ -380,8 +380,8 @@ namespace navetas { namespace escalator {
                 ElT val = it.next();
                 if ( !fn(val) ) inFirst = false;
                 
-                if ( inFirst ) res.first.push_back( std::move(val) );
-                else res.second.push_back( std::move(val) );
+                if ( inFirst ) res.first.push_back( val );
+                else res.second.push_back( val );
             }
             
             return res;
@@ -479,11 +479,11 @@ namespace navetas { namespace escalator {
             std::vector<ElT> v = lower<std::vector>();
             std::sort( v.begin(), v.end(), [](const ElT& a, const ElT& b)
             {
-                //May be asked to compare std::reference_wrappers around types
-                //This doesn't seem to find the operator< by default,
-                //probably as it's defined on the value_type as a class method
-                //and C++ won't try the default operator& on the reference wrapper
-                //and dig around.
+                // May be asked to compare std::reference_wrappers around types
+                // This doesn't seem to find the operator< by default,
+                // probably as it's defined on the value_type as a class method
+                // and C++ won't try the default operator& on the reference wrapper
+                // and dig around.
                 const value_type& v_a = a;
                 const value_type& v_b = b;
                 return v_a < v_b;
@@ -519,7 +519,7 @@ namespace navetas { namespace escalator {
             {
                 auto v = it.next();
                 auto key = keyFn(v);
-                grouped[std::move(key)].push_back( valueFn(std::move(v)) );
+                grouped[key].push_back( valueFn(v) );
             }
             
             return ContainerWrapper<
@@ -568,14 +568,14 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             while ( it.hasNext() )
             {
-                auto res = seen.insert( std::move( it.next() ) );
+                auto res = seen.insert( it.next() );
                 if ( res.second ) ordering.push_back( res.first );
             }
             
             std::vector<ElT> res;
             for ( auto& it : ordering )
             {
-                res.push_back( std::move(*it) );
+                res.push_back( *it );
             }
             
             ContainerWrapper<std::vector<ElT>,  ElT> vw( std::move(res) );
@@ -591,14 +591,14 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             while ( it.hasNext() )
             {
-                auto res = seen.insert( std::move( it.next() ) );
+                auto res = seen.insert( it.next() );
                 if ( res.second ) ordering.push_back( res.first );
             }
             
             std::vector<ElT> res;
             for ( auto& it : ordering )
             {
-                res.push_back( std::move(*it) );
+                res.push_back( *it );
             }
             
             ContainerWrapper<std::vector<ElT>,  ElT> vw( std::move(res) );
@@ -611,7 +611,7 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             while ( it.hasNext() )
             {
-                init = fn( std::move(init), std::move(it.next()) );
+                init = fn( init, it.next() );
             }
             return init;
         }
@@ -721,19 +721,19 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             for ( int i = 0; it.hasNext(); ++i )
             {
-                if ( init ) ext = std::move(it.next());
+                if ( init ) ext = it.next();
                 else
                 {
-                    auto n = std::move(it.next());
+                    value_type n = it.next();
                     if ( n < ext )
                     {
-                        ext = std::move(n);
+                        ext = n;
                         minIndex = i;
                     }
                 }
                 init = false;
             }
-            return std::make_pair( minIndex, std::move(ext) );
+            return std::make_pair( minIndex, ext );
         }
         
         std::pair<size_t, value_type> argMax()
@@ -745,19 +745,19 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             for ( int i = 0; it.hasNext(); ++i )
             {
-                if ( init ) ext = std::move(it.next());
+                if ( init ) ext = it.next();
                 else
                 {
-                    auto n = std::move(it.next());
+                    value_type n = it.next();
                     if ( n > ext )
                     {
-                        ext = std::move(n);
+                        ext = n;
                         maxIndex = i;
                     }
                 }
                 init = false;
             }
-            return std::make_pair( maxIndex, std::move(ext) );
+            return std::make_pair( maxIndex, ext );
         }
         
         value_type min() { return std::template get<1>(argMin()); }
@@ -771,7 +771,7 @@ namespace navetas { namespace escalator {
             while ( it.hasNext() )
             {
                 if ( !init ) ss << sep;
-                auto val = std::move(it.next());
+                value_type val = it.next();
                 ss << static_cast<const value_type&>(val);
                 init = false;
             }
@@ -836,7 +836,7 @@ namespace navetas { namespace escalator {
 
         ElT next()
         {
-            ElT v = std::move(m_next.get());
+            ElT v = m_next.get();
             populateNext();
             return v;
         }
@@ -849,10 +849,10 @@ namespace navetas { namespace escalator {
             m_next.reset();
             while ( m_source.hasNext() )
             {
-                ElT next = std::move(m_source.next());
+                ElT next = m_source.next();
                 if ( m_fn( next ) )
                 {
-                    m_next = std::move(next);
+                    m_next = next;
                     break;
                 }
             }
@@ -878,7 +878,7 @@ namespace navetas { namespace escalator {
 
         ElT next()
         {
-            ElT res = m_fn( std::move(m_next.get()) ); //Moves through here OK
+            ElT res = m_fn( m_next.get() );
             populateNext();
             return res;
         }
@@ -893,13 +893,13 @@ namespace navetas { namespace escalator {
             {
                 // We need to take ownership of the inner object as well as its
                 // iterator as otherwise the iterator may be a dangling pointer
-                m_inner = std::move(m_source.next());
+                m_inner = m_source.next();
                 m_innerIt = m_inner->getIterator();
             }
             
             if ( m_innerIt && m_innerIt->hasNext() )
             {
-                m_next = std::move(m_innerIt->next());
+                m_next = m_innerIt->next();
             }
         }
     
@@ -946,7 +946,7 @@ namespace navetas { namespace escalator {
         typedef MapWrapper<Source, FunctorT, InputT, ElT> Iterator;
         Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source.hasNext(); }
-        ElT next() { return m_fn( std::move(m_source.next()) ); }
+        ElT next() { return m_fn( m_source.next() ); }
     
     private:
         typedef std::function<ElT(InputT)> FunctorHolder_t;
@@ -974,7 +974,7 @@ namespace navetas { namespace escalator {
         typedef ZipWrapper<Source1T, El1T, Source2T, El2T> Iterator;
         Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source1.hasNext() && m_source2.hasNext(); }
-        std::pair<El1T, El2T> next() { return std::make_pair( std::move(m_source1.next()), std::move(m_source2.next()) ); }
+        std::pair<El1T, El2T> next() { return std::make_pair( m_source1.next(), m_source2.next() ); }
         
     private:
         typename Source1T::Iterator m_source1;
@@ -998,7 +998,7 @@ namespace navetas { namespace escalator {
         typedef MapWithStateWrapper<Source, FunctorT, InputT, ElT, StateT> Iterator;
         Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source.hasNext(); }
-        ElT next() { return m_fn( std::move(m_source.next()), m_state ); }
+        ElT next() { return m_fn( m_source.next(), m_state ); }
     
     private:
         typename Source::Iterator   m_source;
@@ -1240,7 +1240,7 @@ namespace navetas { namespace escalator {
         bool hasNext() { return m_op; }
         typename ValueT::value_type next()
         {
-            typename ValueT::value_type val = std::move(m_op.get());
+            typename ValueT::value_type val = m_op.get();
             m_op.reset();
             return val;
         }
