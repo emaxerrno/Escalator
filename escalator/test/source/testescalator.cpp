@@ -30,6 +30,39 @@ void CHECK_SAME_ELEMENTS( const T1& t1, const T2& t2 )
 
 void testStructuralRequirements()
 {
+    // Simple tests
+    {
+        std::vector<int> a = { 5, 4, 3, 2, 1 };
+        
+        std::vector<std::reference_wrapper<const int>> res1 = lift(a).lower<std::vector>();
+        std::vector<int> res2 = lift(a).lower_values<std::vector>();
+        std::vector<std::reference_wrapper<const int>> res3 = lift(a).retain<std::vector>();
+        std::vector<int> res4 = lift(a).retain_values<std::vector>();
+        
+        std::vector<int> res5 = lift(a).map( []( const int& v ) -> int { return v; } ).retain_values<std::vector>();
+        
+        std::vector<int> res6 = lift(a)
+            .filter( []( const int& v ) { return v > 2; } )
+            .copyElements()
+            .sortWith( []( const int& l, const int& r ) { return l < r; } )
+            .retain_values<std::vector>();
+            
+        {
+            std::vector<std::reference_wrapper<const int>> foo = lift(a).lower<std::vector>();
+            std::sort( foo.begin(), foo.end() );
+            
+            ContainerWrapper<std::vector<std::reference_wrapper<const int>>, std::reference_wrapper<const int>> vw( std::move(foo) );
+            
+            vw.getIterator().hasNext();
+            
+            // TODO: the types are inconsistent in ContainerWrapper::Iterator - need to sort out the
+            // WrappedContainerVRef - it should probably be replaced by ContainerType::iterator::deref_type
+            //vw.getIterator().next();
+        }
+            
+    }
+    
+    
     typedef std::unique_ptr<int> upInt_t;
     
     std::vector<upInt_t> a;
@@ -85,7 +118,7 @@ void testStructuralRequirements()
             // Check that multiple consecutive retains are stably typed
             .retain<std::vector>()
             .retain<std::vector>()
-            .lower<std::vector>();
+            .lower_values<std::vector>();
 
         CHECK_SAME_ELEMENTS( res3, std::vector<int> { 9, 1, 16, 16, 4 } );
     }
@@ -98,26 +131,26 @@ void testStructuralRequirements()
             {
                 return lift(row)
                     .map( []( int v ) { return v + 1; } )
-                    .retain<std::vector>();
+                    .retain_values<std::vector>();
             } )
             .checkElementType<ContainerWrapper<std::vector<int>, int>>()
-            .retain<std::vector>();
+            .retain_values<std::vector>();
             
         // Run over the container twice
         CHECK_SAME_ELEMENTS( cpP
             .copyElements()
             .flatten()
-            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
+            .lower_values<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
             
         CHECK_SAME_ELEMENTS( cpP
             .copyElements()
             .flatten()
-            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
+            .lower_values<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
     }
     
     {
         std::vector<int> b = { 1, 2, 3, 4, 5, 4, 3, 2, 1, 6, 7, 8, 9 };
-        lift(b)
+        auto res = lift(b)
             .countBy( []( int v ) { return v % 2; } )
             // This map is nasty - but without removing the const from the first half of the pair,
             // we are unable to retain this pair by value into a container as the STL containers
@@ -137,12 +170,14 @@ void testStructuralRequirements()
         a2.emplace_back( new int(4) );
         a2.emplace_back( new int(2) );
         
-        lift(a2)
-            .filter( []( const upInt_t& v ) { return *v > 2; } );
-            // TODO: Currently can't run this sort because it lowers the results of the filter into
-            // a vector - stripping the reference_wrapper from the unique_ptr. And then everything breaks
-            // because there is no longer a simple move occuring.
-            //.sortWith( []( const upInt_t& lhs, const upInt_t& rhs ) { return *lhs > *rhs; } );
+        auto res = lift(a2)
+            .filter( []( const upInt_t& v ) { return *v > 2; } )
+            .sortWith( []( const upInt_t& lhs, const upInt_t& rhs ) { return *lhs > *rhs; } )
+            .map( []( const upInt_t& v ) -> int { return *v; } )
+            .checkElementType<int>()
+            ;//.lower_values<std::vector>();
+            
+        //CHECK_SAME_ELEMENTS( res, std::vector<int> { 3, 4, 4 } );
     }
 }
 
@@ -155,11 +190,11 @@ void test1()
     
     std::vector<int> a = { 3, 1, 4, 4, 2 };
     
-    std::vector<int> res1 = lift(a).retain<std::vector>();
-    std::set<int> res2 = lift(a).retain<std::set>();
-    std::list<int> res3 = lift(a).retain<std::list>();
-    std::multiset<int> res2a = lift(a).retain<std::multiset>();
-    std::deque<int> res3a = lift(a).retain<std::deque>();
+    std::vector<int> res1 = lift(a).retain_values<std::vector>();
+    std::set<int> res2 = lift(a).retain_values<std::set>();
+    std::list<int> res3 = lift(a).retain_values<std::list>();
+    std::multiset<int> res2a = lift(a).retain_values<std::multiset>();
+    std::deque<int> res3a = lift(a).retain_values<std::deque>();
     
     BOOST_CHECK_EQUAL( res1.size(), 5 );
     BOOST_CHECK_EQUAL( res2.size(), 4 );
@@ -195,7 +230,7 @@ void test1()
     BOOST_CHECK_EQUAL( res4.size(), 5 );
     CHECK_SAME_ELEMENTS( res4, std::vector<std::string> { "9", "1", "16", "16", "4" } );
         
-    std::vector<int> res5 = lift(a).filter( []( int a ) { return a < 4; } ).retain<std::vector>();
+    std::vector<int> res5 = lift(a).filter( []( int a ) { return a < 4; } ).retain_values<std::vector>();
     BOOST_CHECK_EQUAL( res5.size(), 3 );
     CHECK_SAME_ELEMENTS( res5, std::vector<int> { 3, 1, 2 } );
     
@@ -269,10 +304,10 @@ void test1()
     
     // FIXME: Currently fails compilation because retain (via the ContainerWrapper) re-wraps the copied elements with a reference_wrapper
     //std::vector<int> res9 = lift(a).distinct().copyElements().retain<std::vector>();
-    std::vector<int> res9 = lift(a).copyElements().distinct().retain<std::vector>();
+    std::vector<int> res9 = lift(a).copyElements().distinct().retain_values<std::vector>();
     CHECK_SAME_ELEMENTS( res9, std::vector<int> { 3, 1, 4, 2 } );
     
-    auto res9a = lift(a).copyElements().distinct().lower<std::vector>();
+    auto res9a = lift(a).copyElements().distinct().lower_values<std::vector>();
     CHECK_SAME_ELEMENTS( res9, res9a );
     
     {
@@ -298,16 +333,16 @@ void test1()
     }
     
     // Shouldn't preserve order
-    std::set<int> res10 = lift(a).retain<std::set>();
+    std::set<int> res10 = lift(a).retain_values<std::set>();
     CHECK_SAME_ELEMENTS( res10, std::vector<int> { 1, 2, 3, 4 } );
     
-    std::multiset<int> ms = lift(a).retain<std::multiset>();
+    std::multiset<int> ms = lift(a).retain_values<std::multiset>();
     CHECK_SAME_ELEMENTS( ms, std::vector<int> { 1, 2, 3, 4, 4 } );
     
-    CHECK_SAME_ELEMENTS( lift(a).drop(0).lower<std::vector>(), std::vector<int> { 3, 1, 4, 4, 2 } );
-    CHECK_SAME_ELEMENTS( lift(a).drop(3).lower<std::vector>(), std::vector<int> { 4, 2 } );
-    CHECK_SAME_ELEMENTS( lift(a).slice(1, 3).lower<std::vector>(), std::vector<int> { 1, 4 } );
-    CHECK_SAME_ELEMENTS( lift(a).take(3).lower<std::vector>(), std::vector<int> { 3, 1, 4 } );
+    CHECK_SAME_ELEMENTS( lift(a).drop(0).lower_values<std::vector>(), std::vector<int> { 3, 1, 4, 4, 2 } );
+    CHECK_SAME_ELEMENTS( lift(a).drop(3).lower_values<std::vector>(), std::vector<int> { 4, 2 } );
+    CHECK_SAME_ELEMENTS( lift(a).slice(1, 3).lower_values<std::vector>(), std::vector<int> { 1, 4 } );
+    CHECK_SAME_ELEMENTS( lift(a).take(3).lower_values<std::vector>(), std::vector<int> { 3, 1, 4 } );
     
     std::vector<std::pair<int, std::string>> b =
     {
@@ -339,7 +374,7 @@ void test1()
         .groupBy(
             []( const std::pair<int, std::string>& v ) { return v.first; },
             []( const std::pair<int, std::string>& v ) -> std::string { return v.second; } )
-        .lower<std::map>();
+        .lower_values<std::map>();
         
         
     BOOST_REQUIRE_EQUAL( grouped.size(), 4 );
@@ -350,7 +385,7 @@ void test1()
     
     auto counts = lift(b)
         .countBy( []( const std::pair<int, std::string>& v ) { return v.first; } )
-        .lower<std::map>();
+        .lower_values<std::map>();
         
     BOOST_REQUIRE_EQUAL( counts.size(), 4 );
     BOOST_CHECK_EQUAL( counts[1], 3 );
@@ -360,9 +395,9 @@ void test1()
     
     std::vector<double> c = { 1.0, 2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 4.9, 4.9, 5.2, 4.9, 4.9, 5.2, 9.0, 5.0 };
     
-    BOOST_CHECK_EQUAL( lift(c).retain<std::vector>().count(), 15 );
-    BOOST_CHECK_EQUAL( lift(c).retain<std::list>().count(), 15 );
-    BOOST_CHECK_EQUAL( lift(c).retain<std::deque>().count(), 15 );
+    BOOST_CHECK_EQUAL( lift(c).retain_values<std::vector>().count(), 15 );
+    BOOST_CHECK_EQUAL( lift(c).retain_values<std::list>().count(), 15 );
+    BOOST_CHECK_EQUAL( lift(c).retain_values<std::deque>().count(), 15 );
     //BOOST_CHECK_EQUAL( lift(c).retain<std::set>().count(), 11 );
     
     BOOST_CHECK_CLOSE( lift(c).mean(), 5.0, 1e-6 );
@@ -462,7 +497,7 @@ void testFlatMap()
             })
             .checkElementType<ContainerWrapper<std::vector<int>, int>>()
             .flatten()
-            .retain<std::vector>();
+            .retain_values<std::vector>();
 
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 1, 2, 3, 4, 5, 6, 7, 4, 5, 6, 7, 8, 9, 10 } );
     }
@@ -562,13 +597,13 @@ void testStringManip()
     std::vector<int> res = lift(iss)
         .map( []( const std::string& line )
         {
-            auto els = lift(line).split(",").lower<std::vector>();
+            auto els = lift(line).split(",").retain_values<std::vector>();
             
-            std::vector<int> numEls = lift(els).map( []( const std::string& el )
+            std::vector<int> numEls = els.map( []( const std::string& el )
             {
                 auto trimmed = lift(el).trim().toString();
                 return boost::lexical_cast<int>( trimmed );
-            } ).retain<std::vector>();
+            } ).retain_values<std::vector>();
             return numEls[1];
         } )
         .retain<std::vector>();

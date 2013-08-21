@@ -328,13 +328,25 @@ namespace navetas { namespace escalator {
         }
         
         template<template<typename, typename ...> class Container>
-        typename ConversionHelper<value_type, Container>::ContainerType lower()
+        typename ConversionHelper<ElT, Container>::ContainerType lower()
+        {
+            return ConversionHelper<ElT, Container>::lower( get().getIterator() );
+        }
+        
+        template<template<typename, typename ...> class Container>
+        ContainerWrapper<typename ConversionHelper<ElT, Container>::ContainerType, ElT> retain()
+        {
+            return ConversionHelper<ElT, Container>::retain( get().getIterator() );
+        }
+        
+        template<template<typename, typename ...> class Container>
+        typename ConversionHelper<value_type, Container>::ContainerType lower_values()
         {
             return ConversionHelper<value_type, Container>::lower( get().getIterator() );
         }
         
         template<template<typename, typename ...> class Container>
-        ContainerWrapper<typename ConversionHelper<value_type, Container>::ContainerType, value_type> retain()
+        ContainerWrapper<typename ConversionHelper<value_type, Container>::ContainerType, value_type> retain_values()
         {
             return ConversionHelper<value_type, Container>::retain( get().getIterator() );
         }
@@ -462,10 +474,8 @@ namespace navetas { namespace escalator {
         template<typename OrderingF>
         ContainerWrapper<std::vector<ElT>, ElT> sortWith( OrderingF orderingFn )
         {
-            auto lowered = lower<std::vector>();
-            std::vector<ElT> v = lowered;
+            std::vector<ElT> v = lower<std::vector>();
             std::sort( v.begin(), v.end(), orderingFn );
-            
             ContainerWrapper<std::vector<ElT>, ElT> vw( std::move(v) );
             
             return vw;
