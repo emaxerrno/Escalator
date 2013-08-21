@@ -204,25 +204,25 @@ namespace navetas { namespace escalator {
     class ZipWrapper;
 
     template<typename R>
-    struct remove_all_reference
+    struct remove_all_reference_then_const
     {
         typedef typename std::remove_const<typename std::remove_reference<R>::type>::type type;
     };
 
     template<typename R>
-    struct remove_all_reference<std::reference_wrapper<R>>
+    struct remove_all_reference_then_const<std::reference_wrapper<R>>
     {
         typedef typename std::remove_const<R>::type type;
     };
 
     template<typename ContainerT>
     using WrappedContainerConstVRef = std::reference_wrapper<
-                                          const typename remove_all_reference<
+                                          const typename remove_all_reference_then_const<
                                               typename ContainerT::value_type
                                           >::type>;
     template<typename ContainerT>
     using WrappedContainerVRef = std::reference_wrapper<
-                                     typename remove_all_reference<
+                                     typename remove_all_reference_then_const<
                                          typename ContainerT::value_type
                                      >::type>;
 
@@ -311,7 +311,7 @@ namespace navetas { namespace escalator {
         
     public:
         typedef ElT el_t;
-        typedef typename remove_all_reference<ElT>::type value_type;
+        typedef typename remove_all_reference_then_const<ElT>::type value_type;
         
         template< class OutputIterator >
         void toContainer( OutputIterator v ) 
@@ -328,15 +328,15 @@ namespace navetas { namespace escalator {
         }
         
         template<template<typename, typename ...> class Container>
-        typename ConversionHelper<ElT, Container>::ContainerType lower()
+        typename ConversionHelper<value_type, Container>::ContainerType lower()
         {
-            return std::move( ConversionHelper<ElT, Container>::lower( get().getIterator() ) );
+            return ConversionHelper<value_type, Container>::lower( get().getIterator() );
         }
         
         template<template<typename, typename ...> class Container>
-        ContainerWrapper<typename ConversionHelper<ElT, Container>::ContainerType, ElT> retain()
+        ContainerWrapper<typename ConversionHelper<value_type, Container>::ContainerType, value_type> retain()
         {
-            return std::move( ConversionHelper<ElT, Container>::retain( get().getIterator() ) );
+            return ConversionHelper<value_type, Container>::retain( get().getIterator() );
         }
         
         template<typename FunctorT>
@@ -814,7 +814,9 @@ namespace navetas { namespace escalator {
         
         FlatMapWrapper<BaseT, Identity<typename ElT::el_t>, ElT, typename ElT::el_t, typename ElT::el_t> flatten()
         {
-            return FlatMapWrapper<BaseT, Identity<typename ElT::el_t>, ElT, typename ElT::el_t, typename ElT::el_t>( std::move(this->get().getIterator()), Identity<typename ElT::el_t>() );
+            return FlatMapWrapper<BaseT, Identity<typename ElT::el_t>, ElT, typename ElT::el_t, typename ElT::el_t>(
+                std::move(this->get().getIterator()),
+                Identity<typename ElT::el_t>() );
         }
     };
     
@@ -875,9 +877,8 @@ namespace navetas { namespace escalator {
     class FlatMapWrapper : public Conversions<FlatMapWrapper<Source, FunctorT, InnerT, InputT, ElT>, ElT>
     {
     public:
-        FlatMapWrapper( const typename Source::Iterator& source, FunctorT fn ) : m_source(source), m_fn(fn)
+        FlatMapWrapper( const typename Source::Iterator& source, FunctorT fn ) : m_source(source), m_fn(fn), m_requirePopulateNext(true)
         {
-            populateNext();
         }
         
         typedef FlatMapWrapper<Source, FunctorT, InnerT, InputT, ElT> Iterator;
@@ -885,12 +886,17 @@ namespace navetas { namespace escalator {
 
         ElT next()
         {
-            ElT res = m_fn( std::move(m_next.get()) ); //Moves through here OK
-            populateNext();
+            if ( m_requirePopulateNext ) populateNext();
+            ElT res = m_fn( std::move(m_next.get()) ); // Moves through here OK
+            m_requirePopulateNext = true;
             return res;
         }
         
-        bool hasNext() { return m_next; }
+        bool hasNext()
+        {
+            if ( m_requirePopulateNext ) populateNext();
+            return m_next;
+        }
         
     private:
         void populateNext()
@@ -908,15 +914,20 @@ namespace navetas { namespace escalator {
             {
                 m_next = std::move(m_innerIt->next());
             }
+            
+            m_requirePopulateNext = false;
         }
     
     private:
         typedef std::function<ElT(InputT)> FunctorHolder_t;
+        
         typename Source::Iterator           m_source;
         FunctorHolder_t                     m_fn;
         Optional<InnerT>                    m_inner;
         Optional<typename InnerT::Iterator> m_innerIt;
         Optional<InputT>                    m_next;
+        
+        bool                                m_requirePopulateNext;
     };
 
     template<typename Source, typename InputT>
