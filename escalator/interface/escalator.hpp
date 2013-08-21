@@ -462,7 +462,8 @@ namespace navetas { namespace escalator {
         template<typename OrderingF>
         ContainerWrapper<std::vector<ElT>, ElT> sortWith( OrderingF orderingFn )
         {
-            std::vector<ElT> v = lower<std::vector>();
+            auto lowered = lower<std::vector>();
+            std::vector<ElT> v = lowered;
             std::sort( v.begin(), v.end(), orderingFn );
             
             ContainerWrapper<std::vector<ElT>, ElT> vw( std::move(v) );

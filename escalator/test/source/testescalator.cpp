@@ -114,6 +114,36 @@ void testStructuralRequirements()
             .flatten()
             .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
     }
+    
+    {
+        std::vector<int> b = { 1, 2, 3, 4, 5, 4, 3, 2, 1, 6, 7, 8, 9 };
+        lift(b)
+            .countBy( []( int v ) { return v % 2; } )
+            // This map is nasty - but without removing the const from the first half of the pair,
+            // we are unable to retain this pair by value into a container as the STL containers
+            // will not take immutable elements.
+            
+            // TODO: Get the collection wrapper iterator, in this instance (and sortBy etc), to strip the const whilst retaining the const in the inner map?
+            
+            .map( []( const std::pair<const int, size_t> p ) { return std::pair<int, size_t>( p.first, p.second ); } )
+            .sortBy( []( const std::pair<int, size_t>& p ) { return p.second; } );
+    }
+    
+    {
+        std::vector<upInt_t> a2;
+        a2.emplace_back( new int(3) );
+        a2.emplace_back( new int(1) );
+        a2.emplace_back( new int(4) );
+        a2.emplace_back( new int(4) );
+        a2.emplace_back( new int(2) );
+        
+        lift(a2)
+            .filter( []( const upInt_t& v ) { return *v > 2; } );
+            // TODO: Currently can't run this sort because it lowers the results of the filter into
+            // a vector - stripping the reference_wrapper from the unique_ptr. And then everything breaks
+            // because there is no longer a simple move occuring.
+            //.sortWith( []( const upInt_t& lhs, const upInt_t& rhs ) { return *lhs > *rhs; } );
+    }
 }
 
 void test1()
