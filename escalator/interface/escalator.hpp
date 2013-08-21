@@ -204,25 +204,25 @@ namespace navetas { namespace escalator {
     class ZipWrapper;
 
     template<typename R>
-    struct remove_all_reference_then_const
+    struct remove_all_reference_then_remove_const
     {
         typedef typename std::remove_const<typename std::remove_reference<R>::type>::type type;
     };
 
     template<typename R>
-    struct remove_all_reference_then_const<std::reference_wrapper<R>>
+    struct remove_all_reference_then_remove_const<std::reference_wrapper<R>>
     {
         typedef typename std::remove_const<R>::type type;
     };
 
     template<typename ContainerT>
     using WrappedContainerConstVRef = std::reference_wrapper<
-                                          const typename remove_all_reference_then_const<
+                                          const typename remove_all_reference_then_remove_const<
                                               typename ContainerT::value_type
                                           >::type>;
     template<typename ContainerT>
     using WrappedContainerVRef = std::reference_wrapper<
-                                     typename remove_all_reference_then_const<
+                                     typename remove_all_reference_then_remove_const<
                                          typename ContainerT::value_type
                                      >::type>;
 
@@ -311,7 +311,7 @@ namespace navetas { namespace escalator {
         
     public:
         typedef ElT el_t;
-        typedef typename remove_all_reference_then_const<ElT>::type value_type;
+        typedef typename remove_all_reference_then_remove_const<ElT>::type value_type;
         
         template< class OutputIterator >
         void toContainer( OutputIterator v ) 
