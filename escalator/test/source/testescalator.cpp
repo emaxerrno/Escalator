@@ -89,6 +89,31 @@ void testStructuralRequirements()
 
         CHECK_SAME_ELEMENTS( res3, std::vector<int> { 9, 1, 16, 16, 4 } );
     }
+    
+    {
+        std::vector<std::vector<int>> p = { { 1, 2, 3 }, { 4, 5 }, {}, { 6 } };
+        
+        auto cpP = lift(p)
+            .map( []( const std::vector<int>& row )
+            {
+                return lift(row)
+                    .map( []( int v ) { return v + 1; } )
+                    .retain<std::vector>();
+            } )
+            .checkElementType<ContainerWrapper<std::vector<int>, int>>()
+            .retain<std::vector>();
+            
+        // Run over the container twice
+        CHECK_SAME_ELEMENTS( cpP
+            .copyElements()
+            .flatten()
+            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
+            
+        CHECK_SAME_ELEMENTS( cpP
+            .copyElements()
+            .flatten()
+            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
+    }
 }
 
 void test1()
