@@ -1176,32 +1176,6 @@ namespace navetas { namespace escalator {
             return *this;
         }
         
-        /*class Iterator
-        {
-        public:
-            Iterator( const iterator& begin, const iterator& end ) : m_iter(begin), m_end(end)
-            {
-            }
-            
-            bool hasNext()
-            {
-                return m_iter != m_end;
-            }
-            
-            typename iterator::reference next()
-            {
-                ESCALATOR_ASSERT( m_iter != m_end, "Iterator exhausted" );
-                iterator curr = m_iter++;
-                return *curr;
-            }
-            
-        private:
-            iterator        m_iter;
-            const iterator  m_end;
-        };
-        
-        Iterator getIterator() { return Iterator(m_data.begin(), m_data.end()); }*/
-        
         typedef IteratorWrapper<WrappedContainerVRef<Container>, typename Container::iterator> Iterator;
         
         Iterator getIterator() { return Iterator( m_data.begin(), m_data.end() ); }
