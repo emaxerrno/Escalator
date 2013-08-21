@@ -41,7 +41,7 @@ std::vector<size_t> res2 = lift(a)
 CHECK_SAME_ELEMENTS( res2, std::vector<int> { 0, 2, 3 } );
 ```
 
-#### Return a sorted list of distinct numbers
+#### Return a sorted set of distinct numbers
 
 ```C++
 std::set<int> res3 = lift(a)
