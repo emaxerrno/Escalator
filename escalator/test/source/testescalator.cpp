@@ -34,6 +34,9 @@ void testStructuralRequirements()
     {
         std::vector<int> a = { 5, 4, 3, 2, 1 };
         
+        lift(a)
+            .checkIteratorElementType<std::reference_wrapper<const int>>();
+        
         std::vector<std::reference_wrapper<const int>> res1 = lift(a).lower<std::vector>();
         std::vector<int> res2 = lift(a).lower_values<std::vector>();
         std::vector<std::reference_wrapper<const int>> res3 = lift(a).retain<std::vector>();
@@ -62,7 +65,7 @@ void testStructuralRequirements()
             
     }
     
-    
+#if 0
     typedef std::unique_ptr<int> upInt_t;
     
     std::vector<upInt_t> a;
@@ -104,6 +107,28 @@ void testStructuralRequirements()
             bool valid = static_cast<bool>(v);
             BOOST_REQUIRE( valid );
         } );
+    
+    {
+        std::vector<upInt_t> a2;
+        a2.emplace_back( new int(3) );
+        a2.emplace_back( new int(1) );
+        a2.emplace_back( new int(4) );
+        a2.emplace_back( new int(4) );
+        a2.emplace_back( new int(2) );
+        
+        auto res = lift(a2)
+            .checkIteratorElementType<std::reference_wrapper<const upInt_t>>()
+            .filter( []( const upInt_t& v ) { return *v > 2; } )
+            .checkIteratorElementType<std::reference_wrapper<const upInt_t>>()
+            ;/*.sortWith( []( const upInt_t& lhs, const upInt_t& rhs ) { return *lhs > *rhs; } )
+            .checkIteratorElementType<std::reference_wrapper<const upInt_t>>()
+            .map( []( const upInt_t& v ) -> int { return *v; } )
+            .checkIteratorElementType<int>()
+            .lower_values<std::vector>();
+            
+        CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 4, 3 } );*/
+    }
+#endif
     
     // Currently zipping two lifted things gives a pair of ref-wrappers which is
     // perhaps a bit opaque to the user
@@ -154,43 +179,36 @@ void testStructuralRequirements()
         std::vector<int> b = { 1, 2, 3, 4, 5, 4, 3, 2, 1, 6, 7, 8, 9 };
         auto res = lift(b)
             .countBy( []( int v ) { return v % 2; } )
+            .checkIteratorElementType<std::reference_wrapper<std::pair<const int, size_t>>>()
+            //.lower<std::vector>()
             // This map is nasty - but without removing the const from the first half of the pair,
             // we are unable to retain this pair by value into a container as the STL containers
             // will not take immutable elements.
             
             // TODO: Get the collection wrapper iterator, in this instance (and sortBy etc), to strip the const whilst retaining the const in the inner map?
             
-            .map( []( const std::pair<const int, size_t> p ) { return std::pair<int, size_t>( p.first, p.second ); } )
-            .sortBy( []( const std::pair<int, size_t>& p ) { return p.second; } );
+            //.map( []( const std::pair<const int, size_t> p ) { return std::pair<int, size_t>( p.first, p.second ); } )
+            ;//.sortBy( []( const std::pair<int, size_t>& p ) { return p.second; } );
     }
     
     {
         std::map<int, short> m = { {1, 2}, {3, 4}, {5, 6} };
         
         //int foo = lift(m);
-        //lift(m)
-        //    .checkRawElementType<std::pair<int, short>>();
+        lift(m)
+            .checkIteratorElementType<std::reference_wrapper<std::pair<int, short>>>();
     }
     
-    {
-        std::vector<upInt_t> a2;
-        a2.emplace_back( new int(3) );
-        a2.emplace_back( new int(1) );
-        a2.emplace_back( new int(4) );
-        a2.emplace_back( new int(4) );
-        a2.emplace_back( new int(2) );
-        
-        auto res = lift(a2)
-            .filter( []( const upInt_t& v ) { return *v > 2; } )
-            .sortWith( []( const upInt_t& lhs, const upInt_t& rhs ) { return *lhs > *rhs; } )
-            .map( []( const upInt_t& v ) -> int { return *v; } )
-            .checkIteratorElementType<int>()
-            .lower_values<std::vector>();
-            
-        CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 4, 3 } );
-    }
+    
+}
+#if 1
+
+void addTests( test_suite *t )
+{
+    t->add( BOOST_TEST_CASE( testStructuralRequirements ) );
 }
 
+#else
 void test1()
 {
     // vec, set, list etc as things convertible to the std versions but that are still lifted.
@@ -854,6 +872,7 @@ void addTests( test_suite *t )
     t->add( BOOST_TEST_CASE( testOptional ) );
     t->add( BOOST_TEST_CASE( testIteratorAndIterable ) );
 }
+#endif
 
 bool init()
 {

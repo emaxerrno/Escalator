@@ -180,7 +180,7 @@ namespace navetas { namespace escalator {
     template<typename Source, typename FunctorT, typename ElT>
     class FilterWrapper;
     
-    template<typename ElT, typename IterT, typename ContainerT>
+    template<typename ContainerT, typename IterT>
     class IteratorWrapper;
     
     template<typename Container, typename ElT>
@@ -223,44 +223,16 @@ namespace navetas { namespace escalator {
     };
 
     template<typename ContainerT>
-    using WrappedContainerConstVRef = std::reference_wrapper<
-                                          const typename remove_all_reference_then_remove_const<
-                                              typename ContainerT::value_type
-                                          >::type>;
-    template<typename ContainerT>
-    using WrappedContainerMutableVRef = std::reference_wrapper<
-                                     typename remove_all_reference_then_remove_const<
-                                         typename ContainerT::value_type
-                                     >::type>;
-                                     
-    template<typename ContainerT>
-    using WrappedContainerVRef = std::reference_wrapper<
-                                     typename remove_all_reference<
-                                         typename ContainerT::value_type
-                                     >::type>;
-
-
-    template<typename ContainerT>
     ContainerWrapper<ContainerT, typename ContainerT::value_type>
     clift( ContainerT&& cont );
 
     template<typename ContainerT>
-    IteratorWrapper<WrappedContainerConstVRef<ContainerT>,
-                    typename ContainerT::const_iterator,
-                    ContainerT>
+    IteratorWrapper<ContainerT, typename ContainerT::const_iterator>
     lift( const ContainerT& cont );
     
     template<typename ContainerT>
-    IteratorWrapper<WrappedContainerMutableVRef<ContainerT>,
-                    typename ContainerT::iterator,
-                    ContainerT>
+    IteratorWrapper<ContainerT, typename ContainerT::iterator>
     mlift( ContainerT& cont );
-    
-    /*template<typename Iterator>
-    IteratorWrapper<WrappedContainerConstVRef<Iterator>,
-                    Iterator,
-                    ContainerT>
-    lift( Iterator begin, Iterator end );*/
 
     class EmptyError : public std::range_error
     {
@@ -549,7 +521,7 @@ namespace navetas { namespace escalator {
         auto groupBy( KeyFunctorT keyFn, ValueFunctorT valueFn ) ->
             ContainerWrapper<
                 std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>,
-                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>>
+                std::pair<const typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>>
         {
             typedef typename FunctorHelper<KeyFunctorT, ElT>::out_t key_t;
             typedef typename FunctorHelper<ValueFunctorT, ElT>::out_t mutable_value_type;
@@ -565,7 +537,7 @@ namespace navetas { namespace escalator {
             
             return ContainerWrapper<
                 std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>,
-                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>>
+                std::pair<const typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>>
                 (grouped);
         }
         
@@ -573,7 +545,7 @@ namespace navetas { namespace escalator {
         auto countBy( KeyFunctorT keyFn ) ->
             ContainerWrapper<
                 std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>,
-                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>>
+                std::pair<const typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>>
         {
             typedef typename FunctorHelper<KeyFunctorT, ElT>::out_t key_t;
             
@@ -596,7 +568,7 @@ namespace navetas { namespace escalator {
             
             return ContainerWrapper<
                 std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>,
-                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>>( counts );
+                std::pair<const typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>>( counts );
         }
         
         // TODO : Note that this forces evaluation of the input stream
@@ -1063,12 +1035,12 @@ namespace navetas { namespace escalator {
     {
     public:
         typedef ValueT type;
-        ValueT operator()( ValueT v ) const { return v; }
+        ValueT& operator()( ValueT& v ) const { return v; }
     };
     
     // Strip the const from the first element of a map/multimap pair before
     // exposing it to Escalator
-    /*template<typename KeyT, typename ValueT, typename ElT>
+    template<typename KeyT, typename ValueT, typename ElT>
     class ContainerIteratorTransformer<std::map<KeyT, ValueT>, ElT>
     {
     public:
@@ -1078,36 +1050,39 @@ namespace navetas { namespace escalator {
         {
             return type( v.first, v.second );
         }
-    };*/
-
-    /**
-     * std::reference_wrapper<T> won't auto-convert to a
-     * std::reference_wrapper<const T>. Use this function to get
-     * the reference inside whether or not there is a reference wrapper.
-     */
-    template<typename R>
-    static R& stripReferenceWrapper(R& v) { return v; }
-    template<typename R>
-    static R& stripReferenceWrapper(std::reference_wrapper<R>& v) { return v.get(); }
-    template<typename R>
-    static const R& stripReferenceWrapper(const R& v) { return v; }
-    template<typename R>
-    static const R& stripReferenceWrapper(const std::reference_wrapper<R>& v) { return v.get(); }
-
-    template<typename ElT, typename IterT, typename ContainerT>
-    class IteratorWrapper : public Conversions<IteratorWrapper<ElT, IterT, ContainerT>, ElT, ElT>
+    };
+    
+    template<typename IterT>
+    class IteratorDereferenceType
     {
     public:
-        typedef IteratorWrapper<ElT, IterT, ContainerT> self_t;
+        typedef typename std::remove_reference<typename IterT::reference>::type type;
+    };
+    
+ 
+    
+    template<typename ContainerT, typename IterT>
+    using TransformedIteratorType =
+            ContainerIteratorTransformer<
+                ContainerT,
+                typename IteratorDereferenceType<IterT>::type>;
+   
+    template<typename ContainerT, typename IterT>
+    class IteratorWrapper : public Conversions<IteratorWrapper<ContainerT, IterT>,
+        std::reference_wrapper<typename TransformedIteratorType<ContainerT, IterT>::type>,
+        std::reference_wrapper<typename TransformedIteratorType<ContainerT, IterT>::type>>
+    {
+    public:
+        typedef IteratorWrapper<ContainerT, IterT> self_t;
         
-        typedef ContainerIteratorTransformer<ContainerT, ElT> transformer_t;
+        typedef TransformedIteratorType<ContainerT, IterT> transformer_t;
         typedef typename transformer_t::type el_t;
         
         IteratorWrapper( IterT start, IterT end ) : m_iter(start), m_end(end)
         {
         }
         
-        typedef IteratorWrapper<ElT, IterT, ContainerT> Iterator;
+        typedef IteratorWrapper<ContainerT, IterT> Iterator;
         Iterator& getIterator() { return *this; }
         
         bool hasNext()
@@ -1115,13 +1090,13 @@ namespace navetas { namespace escalator {
             return m_iter != m_end;
         }
         
-        typename transformer_t::type next()
+        std::reference_wrapper<typename TransformedIteratorType<ContainerT, IterT>::type> next()
         {
             IterT curr = m_iter++;
             
             transformer_t transformer;
 
-            return transformer(*curr);
+            return transformer( *curr );
         }
 
     private:
@@ -1198,7 +1173,7 @@ namespace navetas { namespace escalator {
     };
     
     template<typename Container, typename ElT>
-    class ContainerWrapper : public Conversions<ContainerWrapper<Container, ElT>, WrappedContainerVRef<Container>, ElT>
+    class ContainerWrapper : public Conversions<ContainerWrapper<Container, ElT>, std::reference_wrapper<ElT>, ElT>
     {
     public:
         typedef typename Container::iterator iterator;
@@ -1238,7 +1213,7 @@ namespace navetas { namespace escalator {
             return *this;
         }
         
-        typedef IteratorWrapper<WrappedContainerVRef<Container>, typename Container::iterator, Container> Iterator;
+        typedef IteratorWrapper<Container, typename Container::iterator> Iterator;
         
         Iterator getIterator() { return Iterator( m_data.begin(), m_data.end() ); }
         
@@ -1396,35 +1371,17 @@ namespace navetas { namespace escalator {
     }
 
     template<typename ContainerT>
-    IteratorWrapper<WrappedContainerConstVRef<ContainerT>,
-                    typename ContainerT::const_iterator,
-                    ContainerT> 
+    IteratorWrapper<ContainerT, typename ContainerT::const_iterator> 
     lift( const ContainerT& cont )
     {
-        return IteratorWrapper<WrappedContainerConstVRef<ContainerT>,
-                               typename ContainerT::const_iterator,
-                               ContainerT>( cont.begin(), cont.end() );
+        return IteratorWrapper<ContainerT, typename ContainerT::const_iterator>( cont.begin(), cont.end() );
     } 
 
     template<typename ContainerT>
-    IteratorWrapper<WrappedContainerMutableVRef<ContainerT>,
-                    typename ContainerT::iterator,
-                    ContainerT>
+    IteratorWrapper<ContainerT, typename ContainerT::iterator>
     mlift( ContainerT& cont )
     {
-        return IteratorWrapper<WrappedContainerMutableVRef<ContainerT>,
-                               typename ContainerT::iterator,
-                               ContainerT>( cont.begin(), cont.end() );
+        return IteratorWrapper<ContainerT, typename ContainerT::iterator>( cont.begin(), cont.end() );
     }
-    
-    /*template<typename Iterator>
-    IteratorWrapper<WrappedContainerConstVRef<Iterator>,
-                    Iterator,
-                    ContainerT>
-    lift( Iterator begin, Iterator end )
-    {
-        return IteratorWrapper<WrappedContainerConstVRef<Iterator>,
-                               Iterator>( begin, end );
-    }*/
 }}
 
