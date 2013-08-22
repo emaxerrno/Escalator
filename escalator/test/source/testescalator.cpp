@@ -84,7 +84,7 @@ void testStructuralRequirements()
         
     // Retain into a vector of unique pointers
     auto res2 = mlift(res1)
-        .checkElementType<std::reference_wrapper<upInt_t>>()
+        .checkIteratorElementType<std::reference_wrapper<upInt_t>>()
         .map( []( upInt_t& v ) { return std::move(v); } )
         .retain<std::vector>();
         
@@ -110,15 +110,17 @@ void testStructuralRequirements()
     {
         std::vector<int> b = { 3, 1, 4, 4, 2 };
         
-        auto res3 = lift(b).zip(lift(b))
+        std::vector<int> res3 = lift(b).zip(lift(b))
             .map( []( std::pair<std::reference_wrapper<const int>, std::reference_wrapper<const int>> p )
             {
                 return p.first * p.second;
             } )
+            .checkIteratorElementType<int>()
             // Check that multiple consecutive retains are stably typed
             .retain<std::vector>()
+            .checkRawElementType<int>()
             .retain<std::vector>()
-            .lower_values<std::vector>();
+            .lower<std::vector>();
 
         CHECK_SAME_ELEMENTS( res3, std::vector<int> { 9, 1, 16, 16, 4 } );
     }
@@ -133,7 +135,7 @@ void testStructuralRequirements()
                     .map( []( int v ) { return v + 1; } )
                     .retain_values<std::vector>();
             } )
-            .checkElementType<ContainerWrapper<std::vector<int>, int>>()
+            .checkIteratorElementType<ContainerWrapper<std::vector<int>, int>>()
             .retain_values<std::vector>();
             
         // Run over the container twice
@@ -174,7 +176,7 @@ void testStructuralRequirements()
             .filter( []( const upInt_t& v ) { return *v > 2; } )
             .sortWith( []( const upInt_t& lhs, const upInt_t& rhs ) { return *lhs > *rhs; } )
             .map( []( const upInt_t& v ) -> int { return *v; } )
-            .checkElementType<int>()
+            .checkIteratorElementType<int>()
             .lower_values<std::vector>();
             
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 4, 3 } );
@@ -495,7 +497,7 @@ void testFlatMap()
                 for( int x : v ) { r.push_back( x ); }
                 return clift(std::move(r));
             })
-            .checkElementType<ContainerWrapper<std::vector<int>, int>>()
+            .checkIteratorElementType<ContainerWrapper<std::vector<int>, int>>()
             .flatten()
             .retain_values<std::vector>();
 

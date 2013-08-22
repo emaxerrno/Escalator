@@ -312,7 +312,7 @@ namespace navetas { namespace escalator {
     };
     
     
-    template<typename BaseT, typename ElT>
+    template<typename BaseT, typename ElT, typename RetainElT>
     class ConversionsBase : public Lifted
     {
     protected:
@@ -334,22 +334,29 @@ namespace navetas { namespace escalator {
         }
         
         template<typename ElementCheckType>
-        BaseT& checkElementType()
+        BaseT& checkIteratorElementType()
         {
             static_assert( std::is_same<ElementCheckType, ElT>::value, "Element type does not match requirements" );
             return get();
         }
         
-        template<template<typename, typename ...> class Container>
-        typename ConversionHelper<ElT, Container>::ContainerType lower()
+        template<typename ElementCheckType>
+        BaseT& checkRawElementType()
         {
-            return ConversionHelper<ElT, Container>::lower( get().getIterator() );
+            static_assert( std::is_same<ElementCheckType, RetainElT>::value, "Element type does not match requirements" );
+            return get();
         }
         
         template<template<typename, typename ...> class Container>
-        ContainerWrapper<typename ConversionHelper<ElT, Container>::ContainerType, ElT> retain()
+        typename ConversionHelper<RetainElT, Container>::ContainerType lower()
         {
-            return ConversionHelper<ElT, Container>::retain( get().getIterator() );
+            return ConversionHelper<RetainElT, Container>::lower( get().getIterator() );
+        }
+        
+        template<template<typename, typename ...> class Container>
+        ContainerWrapper<typename ConversionHelper<RetainElT, Container>::ContainerType, RetainElT> retain()
+        {
+            return ConversionHelper<RetainElT, Container>::retain( get().getIterator() );
         }
         
         template<template<typename, typename ...> class Container>
@@ -812,15 +819,15 @@ namespace navetas { namespace escalator {
         double increasing();
     };
 
-    template<typename BaseT, typename ElT, typename ElIsLifted>
-    class ConversionsImpl : public ConversionsBase<BaseT, ElT>
+    template<typename BaseT, typename ElT, typename RetainElT, typename ElIsLifted>
+    class ConversionsImpl : public ConversionsBase<BaseT, ElT, RetainElT>
     {
     };
     
     
     
-    template<typename BaseT, typename ElT>
-    class ConversionsImpl<BaseT, ElT, std::true_type> : public ConversionsBase<BaseT, ElT>
+    template<typename BaseT, typename ElT, typename RetainElT>
+    class ConversionsImpl<BaseT, ElT, RetainElT, std::true_type> : public ConversionsBase<BaseT, ElT, RetainElT>
     {
     public:
         template<typename FunctorT>
@@ -844,14 +851,14 @@ namespace navetas { namespace escalator {
         }
     };
     
-    template<typename BaseT, typename ElT>
-    class Conversions : public ConversionsImpl<BaseT, ElT, typename std::is_base_of<Lifted, ElT>::type>
+    template<typename BaseT, typename ElT, typename RetainElT>
+    class Conversions : public ConversionsImpl<BaseT, ElT, RetainElT, typename std::is_base_of<Lifted, ElT>::type>
     {
     };
     
     
     template<typename Source, typename FunctorT, typename ElT>
-    class FilterWrapper : public Conversions<FilterWrapper<Source, FunctorT, ElT>, ElT>
+    class FilterWrapper : public Conversions<FilterWrapper<Source, FunctorT, ElT>, ElT, ElT>
     {
     public:
         FilterWrapper( const typename Source::Iterator& source, FunctorT fn ) : m_source(source), m_fn(fn)
@@ -898,7 +905,7 @@ namespace navetas { namespace escalator {
     };
 
     template<typename Source, typename FunctorT, typename InnerT, typename InputT, typename ElT>
-    class FlatMapWrapper : public Conversions<FlatMapWrapper<Source, FunctorT, InnerT, InputT, ElT>, ElT>
+    class FlatMapWrapper : public Conversions<FlatMapWrapper<Source, FunctorT, InnerT, InputT, ElT>, ElT, ElT>
     {
     public:
         FlatMapWrapper( const typename Source::Iterator& source, FunctorT fn ) : m_source(source), m_fn(fn), m_requirePopulateNext(true)
@@ -956,7 +963,7 @@ namespace navetas { namespace escalator {
 
     template<typename Source, typename InputT>
     class CopyWrapper : public Conversions<CopyWrapper<Source, InputT>,
-                                           typename std::remove_const<typename InputT::type>::type>
+                                           typename std::remove_const<typename InputT::type>::type, typename std::remove_const<typename InputT::type>::type>
     {
     private:
         typedef CopyWrapper<Source, InputT> self_t;
@@ -972,7 +979,7 @@ namespace navetas { namespace escalator {
     };
 
     template<typename Source, typename FunctorT, typename InputT, typename ElT>
-    class MapWrapper : public Conversions<MapWrapper<Source, FunctorT, InputT, ElT>, ElT>
+    class MapWrapper : public Conversions<MapWrapper<Source, FunctorT, InputT, ElT>, ElT, ElT>
     {
     private:
         typedef MapWrapper<Source, FunctorT, InputT, ElT> self_t;
@@ -998,7 +1005,7 @@ namespace navetas { namespace escalator {
     };
     
     template<typename Source1T, typename El1T, typename Source2T, typename El2T>
-    class ZipWrapper : public Conversions<ZipWrapper<Source1T, El1T, Source2T, El2T>, std::pair<El1T, El2T>>
+    class ZipWrapper : public Conversions<ZipWrapper<Source1T, El1T, Source2T, El2T>, std::pair<El1T, El2T>, std::pair<El1T, El2T>>
     {
     public:
         ZipWrapper( const typename Source1T::Iterator& source1, const typename Source2T::Iterator& source2 ) :
@@ -1024,7 +1031,7 @@ namespace navetas { namespace escalator {
     };
     
     template<typename Source, typename FunctorT, typename InputT, typename ElT, typename StateT>
-    class MapWithStateWrapper : public Conversions<MapWithStateWrapper<Source, FunctorT, InputT, ElT, StateT>, ElT>
+    class MapWithStateWrapper : public Conversions<MapWithStateWrapper<Source, FunctorT, InputT, ElT, StateT>, ElT, ElT>
     {
     public:
         typedef MapWithStateWrapper<Source, FunctorT, InputT, ElT, StateT> self_t;
@@ -1063,7 +1070,7 @@ namespace navetas { namespace escalator {
     static const R& StripReferenceWrapper(const std::reference_wrapper<R>& v) { return v.get(); }
 
     template<typename ElT, typename IterT>
-    class IteratorWrapper : public Conversions<IteratorWrapper<ElT, IterT>, ElT>
+    class IteratorWrapper : public Conversions<IteratorWrapper<ElT, IterT>, ElT, ElT>
     {
     public:
         typedef IteratorWrapper<ElT, IterT> self_t;
@@ -1092,7 +1099,7 @@ namespace navetas { namespace escalator {
     };
     
     template<typename SourceT, typename ElT>
-    class SliceWrapper : public Conversions<SliceWrapper<SourceT, ElT>, ElT>
+    class SliceWrapper : public Conversions<SliceWrapper<SourceT, ElT>, ElT, ElT>
     {
     public:
         SliceWrapper( const typename SourceT::Iterator& source, size_t from, size_t to, SliceBehavior behavior )
@@ -1160,7 +1167,7 @@ namespace navetas { namespace escalator {
     };
     
     template<typename Container, typename ElT>
-    class ContainerWrapper : public Conversions<ContainerWrapper<Container, ElT>, WrappedContainerVRef<Container>>
+    class ContainerWrapper : public Conversions<ContainerWrapper<Container, ElT>, WrappedContainerVRef<Container>, ElT>
     {
     public:
         typedef typename Container::iterator iterator;
@@ -1212,7 +1219,7 @@ namespace navetas { namespace escalator {
         Container       m_data;
     };
 
-    class Counter : public Conversions<Counter, int>
+    class Counter : public Conversions<Counter, int, int>
     {
     public:
         Counter() : m_count(0) {}
@@ -1231,7 +1238,7 @@ namespace navetas { namespace escalator {
     };
 
     template<typename StreamT>
-    class StreamWrapper : public Conversions<StreamWrapper<StreamT>, typename StreamT::value_type>
+    class StreamWrapper : public Conversions<StreamWrapper<StreamT>, typename StreamT::value_type, typename StreamT::value_type>
     {
     public:
         StreamWrapper( StreamT& stream ) : m_stream(stream) {}
@@ -1250,7 +1257,7 @@ namespace navetas { namespace escalator {
     };
 
     template<typename ValueT>
-    class OptionalWrapper : public Conversions<OptionalWrapper<ValueT>, typename ValueT::value_type>
+    class OptionalWrapper : public Conversions<OptionalWrapper<ValueT>, typename ValueT::value_type, typename ValueT::value_type>
     {
     public:
         OptionalWrapper( ValueT&& op ) : m_op( std::move(op) ) {}
@@ -1267,7 +1274,7 @@ namespace navetas { namespace escalator {
         ValueT m_op;
     };
 
-    class IStreamWrapper : public Conversions<IStreamWrapper, std::string>
+    class IStreamWrapper : public Conversions<IStreamWrapper, std::string, std::string>
     {
     public:
         IStreamWrapper( std::istream& stream ) : m_stream(stream)
@@ -1321,8 +1328,8 @@ namespace navetas { namespace escalator {
         const std::string& toString() { return m_data; }
     };
     
-    template<typename BaseT, typename ElT>
-    double ConversionsBase<BaseT, ElT>::increasing()
+    template<typename BaseT, typename ElT, typename RetainElT>
+    double ConversionsBase<BaseT, ElT, RetainElT>::increasing()
     {
         std::vector<double> res = zipWithIndex()
             .sortWith( []( const std::pair<ElT, size_t>& a, const std::pair<ElT, size_t>& b ) { return std::get<0>(a) < std::get<0>(b); } )
