@@ -165,6 +165,14 @@ void testStructuralRequirements()
     }
     
     {
+        std::map<int, short> m = { {1, 2}, {3, 4}, {5, 6} };
+        
+        //int foo = lift(m);
+        //lift(m)
+        //    .checkRawElementType<std::pair<int, short>>();
+    }
+    
+    {
         std::vector<upInt_t> a2;
         a2.emplace_back( new int(3) );
         a2.emplace_back( new int(1) );
