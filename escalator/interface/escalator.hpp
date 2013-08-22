@@ -203,16 +203,23 @@ namespace navetas { namespace escalator {
     template<typename Source1T, typename El1T, typename Source2T, typename El2T>
     class ZipWrapper;
 
+    
     template<typename R>
-    struct remove_all_reference_then_remove_const
+    struct remove_all_reference
     {
-        typedef typename std::remove_const<typename std::remove_reference<R>::type>::type type;
+        typedef typename std::remove_reference<R>::type type;
     };
 
     template<typename R>
-    struct remove_all_reference_then_remove_const<std::reference_wrapper<R>>
+    struct remove_all_reference<std::reference_wrapper<R>>
     {
-        typedef typename std::remove_const<R>::type type;
+        typedef R type;
+    };
+    
+    template<typename T>
+    struct remove_all_reference_then_remove_const
+    {
+        typedef typename std::remove_const<typename remove_all_reference<T>::type>::type type;
     };
 
     template<typename ContainerT>
@@ -221,8 +228,14 @@ namespace navetas { namespace escalator {
                                               typename ContainerT::value_type
                                           >::type>;
     template<typename ContainerT>
-    using WrappedContainerVRef = std::reference_wrapper<
+    using WrappedContainerMutableVRef = std::reference_wrapper<
                                      typename remove_all_reference_then_remove_const<
+                                         typename ContainerT::value_type
+                                     >::type>;
+                                     
+    template<typename ContainerT>
+    using WrappedContainerVRef = std::reference_wrapper<
+                                     typename remove_all_reference<
                                          typename ContainerT::value_type
                                      >::type>;
 
@@ -237,7 +250,7 @@ namespace navetas { namespace escalator {
     lift( const ContainerT& cont );
     
     template<typename ContainerT>
-    IteratorWrapper<WrappedContainerVRef<ContainerT>,
+    IteratorWrapper<WrappedContainerMutableVRef<ContainerT>,
                     typename ContainerT::iterator>
     mlift( ContainerT& cont );
     
@@ -1354,11 +1367,11 @@ namespace navetas { namespace escalator {
     } 
 
     template<typename ContainerT>
-    IteratorWrapper<WrappedContainerVRef<ContainerT>,
+    IteratorWrapper<WrappedContainerMutableVRef<ContainerT>,
                     typename ContainerT::iterator>
     mlift( ContainerT& cont )
     {
-        return IteratorWrapper<WrappedContainerVRef<ContainerT>,
+        return IteratorWrapper<WrappedContainerMutableVRef<ContainerT>,
                                typename ContainerT::iterator>( cont.begin(), cont.end() );
     }
     

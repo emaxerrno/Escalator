@@ -175,9 +175,9 @@ void testStructuralRequirements()
             .sortWith( []( const upInt_t& lhs, const upInt_t& rhs ) { return *lhs > *rhs; } )
             .map( []( const upInt_t& v ) -> int { return *v; } )
             .checkElementType<int>()
-            ;//.lower_values<std::vector>();
+            .lower_values<std::vector>();
             
-        //CHECK_SAME_ELEMENTS( res, std::vector<int> { 3, 4, 4 } );
+        CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 4, 3 } );
     }
 }
 
