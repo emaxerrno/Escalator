@@ -224,16 +224,15 @@ void test1()
     BOOST_CHECK_EQUAL( res2a.size(), 5 );
     BOOST_CHECK_EQUAL( res3a.size(), 5 );
     
-#if 0
+
     std::set<int> q = { 1, 2, 3, 4 };
-    auto z = lift(res2).zip(lift(q)).lower<std::vector>();
+    auto z = lift(res2).copyElements().zip(lift(q).copyElements()).lower<std::vector>();
     BOOST_CHECK_EQUAL( z.size(), 4 );
     
     {
-        auto tmp = lift(res2).zip( lift(q) ).lower<std::vector>();
+        auto tmp = lift(res2).copyElements().zip( lift(q).copyElements() ).lower<std::vector>();
         BOOST_CHECK_EQUAL( tmp.size(), 4 );
     }
-#endif
     
     CHECK_SAME_ELEMENTS( res2, std::set<int> { 1, 2, 3, 4 } );
     
