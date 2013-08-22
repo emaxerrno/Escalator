@@ -65,7 +65,7 @@ void testStructuralRequirements()
             
     }
     
-#if 0
+
     typedef std::unique_ptr<int> upInt_t;
     
     std::vector<upInt_t> a;
@@ -78,7 +78,7 @@ void testStructuralRequirements()
     std::vector<upInt_t> res1 = mlift(a)
         .map( []( upInt_t& v ) { return std::move(v); } )
         .lower<std::vector>();
-        
+ 
     mlift(res1).foreach( []( upInt_t& v )
     {
         bool valid = static_cast<bool>(v);
@@ -107,6 +107,7 @@ void testStructuralRequirements()
             bool valid = static_cast<bool>(v);
             BOOST_REQUIRE( valid );
         } );
+
     
     {
         std::vector<upInt_t> a2;
@@ -128,7 +129,7 @@ void testStructuralRequirements()
             
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 4, 3 } );*/
     }
-#endif
+
     
     // Currently zipping two lifted things gives a pair of ref-wrappers which is
     // perhaps a bit opaque to the user
@@ -195,20 +196,13 @@ void testStructuralRequirements()
         std::map<int, short> m = { {1, 2}, {3, 4}, {5, 6} };
         
         //int foo = lift(m);
-        lift(m)
-            .checkIteratorElementType<std::reference_wrapper<std::pair<int, short>>>();
+        //lift(m)
+        //    .checkIteratorElementType<std::reference_wrapper<std::pair<int, short>>>();
     }
     
     
 }
-#if 1
 
-void addTests( test_suite *t )
-{
-    t->add( BOOST_TEST_CASE( testStructuralRequirements ) );
-}
-
-#else
 void test1()
 {
     // vec, set, list etc as things convertible to the std versions but that are still lifted.
@@ -230,6 +224,7 @@ void test1()
     BOOST_CHECK_EQUAL( res2a.size(), 5 );
     BOOST_CHECK_EQUAL( res3a.size(), 5 );
     
+#if 0
     std::set<int> q = { 1, 2, 3, 4 };
     auto z = lift(res2).zip(lift(q)).lower<std::vector>();
     BOOST_CHECK_EQUAL( z.size(), 4 );
@@ -238,6 +233,7 @@ void test1()
         auto tmp = lift(res2).zip( lift(q) ).lower<std::vector>();
         BOOST_CHECK_EQUAL( tmp.size(), 4 );
     }
+#endif
     
     CHECK_SAME_ELEMENTS( res2, std::set<int> { 1, 2, 3, 4 } );
     
@@ -710,26 +706,6 @@ void testNonCopyable()
     BOOST_CHECK_EQUAL( count, 10 );
 }
 
-// I don't think nested ref-wrappers added intentionally like this
-// should be automatically collapsed by the framework
-/*
-void testNestedReferences()
-{
-    int a=1;
-    int b=2;
-    std::vector<std::reference_wrapper<int>> v = {a, b};
-
-    auto s = lift(v)
-        .map([](const int& i)
-        {
-            return i+1;
-        })
-        .checkIteratorElementType<int>()
-        .sum();
-    BOOST_CHECK_EQUAL( s, 5 );
-}
-*/
-
 void testOptional()
 {
     struct Thing
@@ -868,11 +844,10 @@ void addTests( test_suite *t )
     t->add( BOOST_TEST_CASE( testCounter ) );
     t->add( BOOST_TEST_CASE( testShortInputs) );
     t->add( BOOST_TEST_CASE( testNonCopyable) );
-    //t->add( BOOST_TEST_CASE( testNestedReferences) );
     t->add( BOOST_TEST_CASE( testOptional ) );
     t->add( BOOST_TEST_CASE( testIteratorAndIterable ) );
 }
-#endif
+
 
 bool init()
 {

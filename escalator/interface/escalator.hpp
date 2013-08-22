@@ -1040,7 +1040,7 @@ namespace navetas { namespace escalator {
     
     // Strip the const from the first element of a map/multimap pair before
     // exposing it to Escalator
-    template<typename KeyT, typename ValueT, typename ElT>
+    /*template<typename KeyT, typename ValueT, typename ElT>
     class ContainerIteratorTransformer<std::map<KeyT, ValueT>, ElT>
     {
     public:
@@ -1050,7 +1050,7 @@ namespace navetas { namespace escalator {
         {
             return type( v.first, v.second );
         }
-    };
+    };*/
     
     template<typename IterT>
     class IteratorDereferenceType
