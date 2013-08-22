@@ -327,7 +327,7 @@ namespace navetas { namespace escalator {
         
     public:
         typedef ElT el_t;
-        typedef typename remove_all_reference_then_remove_const<ElT>::type value_type;
+        typedef typename remove_all_reference_then_remove_const<ElT>::type mutable_value_type;
         
         template< class OutputIterator >
         void toContainer( OutputIterator v ) 
@@ -363,15 +363,15 @@ namespace navetas { namespace escalator {
         }
         
         template<template<typename, typename ...> class Container>
-        typename ConversionHelper<value_type, Container>::ContainerType lower_values()
+        typename ConversionHelper<mutable_value_type, Container>::ContainerType lower_values()
         {
-            return ConversionHelper<value_type, Container>::lower( get().getIterator() );
+            return ConversionHelper<mutable_value_type, Container>::lower( get().getIterator() );
         }
         
         template<template<typename, typename ...> class Container>
-        ContainerWrapper<typename ConversionHelper<value_type, Container>::ContainerType, value_type> retain_values()
+        ContainerWrapper<typename ConversionHelper<mutable_value_type, Container>::ContainerType, mutable_value_type> retain_values()
         {
-            return ConversionHelper<value_type, Container>::retain( get().getIterator() );
+            return ConversionHelper<mutable_value_type, Container>::retain( get().getIterator() );
         }
         
         template<typename FunctorT>
@@ -522,11 +522,11 @@ namespace navetas { namespace escalator {
             {
                 //May be asked to compare std::reference_wrappers around types
                 //This doesn't seem to find the operator< by default,
-                //probably as it's defined on the value_type as a class method
+                //probably as it's defined on the mutable_value_type as a class method
                 //and C++ won't try the default operator& on the reference wrapper
                 //and dig around.
-                const value_type& v_a = a;
-                const value_type& v_b = b;
+                const mutable_value_type& v_a = a;
+                const mutable_value_type& v_b = b;
                 return v_a < v_b;
             });
             
@@ -552,9 +552,9 @@ namespace navetas { namespace escalator {
                 std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>>
         {
             typedef typename FunctorHelper<KeyFunctorT, ElT>::out_t key_t;
-            typedef typename FunctorHelper<ValueFunctorT, ElT>::out_t value_type;
+            typedef typename FunctorHelper<ValueFunctorT, ElT>::out_t mutable_value_type;
             
-            std::map<key_t, std::vector<value_type>> grouped;
+            std::map<key_t, std::vector<mutable_value_type>> grouped;
             auto it = get().getIterator();
             while ( it.hasNext() )
             {
@@ -700,11 +700,11 @@ namespace navetas { namespace escalator {
             return count;
         }
         
-        value_type sum()
+        mutable_value_type sum()
         {
             auto it = get().getIterator();
             ESCALATOR_ASSERT( it.hasNext(), "Mean over insufficient items" );
-            value_type acc = it.next();
+            mutable_value_type acc = it.next();
             while ( it.hasNext() )
             {
                 acc += it.next();
@@ -712,13 +712,13 @@ namespace navetas { namespace escalator {
             return acc;
         }
         
-        value_type mean()
+        mutable_value_type mean()
         {
             auto it = get().getIterator();
             ESCALATOR_ASSERT( it.hasNext(), "Mean over insufficient items" );
             
             size_t count = 1;
-            value_type acc = it.next();
+            mutable_value_type acc = it.next();
             while ( it.hasNext() )
             {
                 acc += it.next();
@@ -728,7 +728,7 @@ namespace navetas { namespace escalator {
             return acc / static_cast<double>(count);
         }
         
-        value_type median()
+        mutable_value_type median()
         {
             auto it = get().getIterator();
             ESCALATOR_ASSERT( it.hasNext(), "Median over insufficient items" );
@@ -753,10 +753,10 @@ namespace navetas { namespace escalator {
         }
         
         //TODO: Should these use boost::optional to work round init requirements?
-        std::pair<size_t, value_type> argMin()
+        std::pair<size_t, mutable_value_type> argMin()
         {
             bool init = true;
-            value_type ext = value_type();
+            mutable_value_type ext = mutable_value_type();
             
             size_t minIndex = 0;
             auto it = get().getIterator();
@@ -777,10 +777,10 @@ namespace navetas { namespace escalator {
             return std::make_pair( minIndex, std::move(ext) );
         }
         
-        std::pair<size_t, value_type> argMax()
+        std::pair<size_t, mutable_value_type> argMax()
         {
             bool init = true;
-            value_type ext = value_type();
+            mutable_value_type ext = mutable_value_type();
             
             size_t maxIndex = 0;
             auto it = get().getIterator();
@@ -801,8 +801,8 @@ namespace navetas { namespace escalator {
             return std::make_pair( maxIndex, std::move(ext) );
         }
         
-        value_type min() { return std::template get<1>(argMin()); }
-        value_type max() { return std::template get<1>(argMax()); }
+        mutable_value_type min() { return std::template get<1>(argMin()); }
+        mutable_value_type max() { return std::template get<1>(argMax()); }
         
         std::string mkString( const std::string& sep )
         {
@@ -813,7 +813,7 @@ namespace navetas { namespace escalator {
             {
                 if ( !init ) ss << sep;
                 auto val = std::move(it.next());
-                ss << static_cast<const value_type&>(val);
+                ss << static_cast<const mutable_value_type&>(val);
                 init = false;
             }
             return ss.str();
@@ -1120,8 +1120,8 @@ namespace navetas { namespace escalator {
             IterT curr = m_iter++;
             
             transformer_t transformer;
-            
-            return transformer( stripReferenceWrapper(*curr) );
+
+            return transformer(*curr);
         }
 
     private:
