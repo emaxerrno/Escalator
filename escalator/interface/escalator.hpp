@@ -601,8 +601,8 @@ namespace navetas { namespace escalator {
         mutable_value_type sum()
         {
             auto it = get().getIterator();
-            ESCALATOR_ASSERT( it.hasNext(), "Mean over insufficient items" );
-            mutable_value_type acc = it.next();
+            mutable_value_type acc = mutable_value_type();
+
             while ( it.hasNext() )
             {
                 acc += it.next();
@@ -1330,7 +1330,21 @@ namespace navetas { namespace escalator {
             ContainerT,
             typename ContainerT::iterator,
             Identity<typename ContainerT::iterator::reference>>( cont.begin(), cont.end() );
-    } 
+    }
+    
+    template<typename ContainerT>
+    IteratorWrapper<
+        ContainerT,
+        typename ContainerT::iterator,
+        WrapWithReferenceWrapper<typename std::remove_reference<typename ContainerT::iterator::reference>::type>>
+    lift_ref_wrapped( ContainerT& cont )
+    {
+        return IteratorWrapper<
+            ContainerT,
+            typename ContainerT::iterator,
+            WrapWithReferenceWrapper<typename std::remove_reference<typename ContainerT::iterator::reference>::type>>( cont.begin(), cont.end() );
+    }
+    
 
     template<typename ContainerT>
     IteratorWrapper<

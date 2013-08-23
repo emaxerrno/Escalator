@@ -10,6 +10,13 @@ using namespace boost::unit_test;
 using namespace navetas::escalator;
 
 
+// TODO:
+//
+// * Fix flatten
+// * Lift by value of map/multimap should strip const from first element of pair
+//   at least when returning from groupBy and countBy
+
+
 template<typename T1, typename T2>
 void CHECK_SAME_ELEMENTS( const T1& t1, const T2& t2 )
 {
@@ -136,7 +143,7 @@ void testStructuralRequirements()
                 return p.first * p.second;
             } )
             .checkIteratorElementType<int>()
-            // Check that multiple consecutive retains are stably typed
+            // Check that multiple consecutive retains are stable-y typed
             .retain<std::vector>()
             .checkRawElementType<int>()
             .retain<std::vector>()
@@ -157,6 +164,9 @@ void testStructuralRequirements()
             } )
             .checkIteratorElementType<ContainerWrapper<std::vector<int>, int>>()
             .retain<std::vector>();
+            
+        auto numberSum = cpP.map( []( ContainerWrapper<std::vector<int>, int> inner ) { return inner.sum(); } ).sum();
+        BOOST_CHECK_EQUAL( 27, numberSum );
             
         // Run over the container twice
         /*CHECK_SAME_ELEMENTS( cpP
@@ -327,7 +337,6 @@ void test1()
     auto res9a = lift(a).distinct().lower<std::vector>();
     CHECK_SAME_ELEMENTS( res9, res9a );
     
-#if 0
     {
         std::vector<std::shared_ptr<int>> foo = {
             std::make_shared<int>( 1 ),
@@ -336,7 +345,10 @@ void test1()
             std::make_shared<int>( 4 ),
             std::make_shared<int>( 1 ) };
     
-        std::vector<int> unique = lift(foo)
+        // lift_ref_wrapped rather than lift_ref as reference_wrappers are able to live in STL containers
+        // (i.e. the ones used by distinctWith). Perhaps this could be hidden away from the user and
+        // lift_ref could be used instead
+        std::vector<int> unique = lift_ref_wrapped(foo)
             .distinctWith( []( const std::shared_ptr<int>& a, const std::shared_ptr<int>& b )
             {
                 BOOST_REQUIRE( a );
@@ -348,7 +360,7 @@ void test1()
             
         CHECK_SAME_ELEMENTS( unique, std::vector<int> { 1, 3, 4 } );
     }
-#endif
+
     
     // Shouldn't preserve order
     std::set<int> res10 = lift(a).retain<std::set>();
@@ -416,7 +428,7 @@ void test1()
     BOOST_CHECK_EQUAL( lift(c).retain<std::vector>().count(), 15 );
     BOOST_CHECK_EQUAL( lift(c).retain<std::list>().count(), 15 );
     BOOST_CHECK_EQUAL( lift(c).retain<std::deque>().count(), 15 );
-    //BOOST_CHECK_EQUAL( lift(c).retain<std::set>().count(), 11 );
+    BOOST_CHECK_EQUAL( lift(c).retain<std::set>().count(), 11 );
     
     BOOST_CHECK_CLOSE( lift(c).mean(), 5.0, 1e-6 );
     BOOST_CHECK_CLOSE( lift(c).median(), 4.9, 1e-6 );
@@ -689,7 +701,6 @@ void testShortInputs()
 
 void testNonCopyable()
 {
-#if 0
     class NoCopy : public boost::noncopyable
     {
     };
@@ -697,83 +708,13 @@ void testNonCopyable()
     std::vector<NoCopy> v(10);
 
     int count = 0;
-    lift(v)
+    lift_ref(v)
         .foreach([&count](const NoCopy& n)
         {
             count++;
         });
     BOOST_CHECK_EQUAL( count, 10 );
-#endif
 }
-
-void testOptional()
-{
-#if 0
-    struct Thing
-    {
-        Thing(int& res) : m_res(res) {}
-        ~Thing() { m_res++; }
-
-        int& m_res;
-        int a;
-        long b;
-    };
-
-    {
-        Optional<Thing> o;
-        BOOST_CHECK_EQUAL( static_cast<bool>(o), false );
-    }
-
-    int res = 0;
-    Thing t(res); t.a=1; t.b=2;
-    {
-        Optional<Thing>o(t);
-        BOOST_CHECK_EQUAL( res, 0 );
-        BOOST_CHECK_EQUAL( static_cast<bool>(o), true );
-        BOOST_CHECK_EQUAL( o->a, 1 );
-        BOOST_CHECK_EQUAL( o->b, 2 );
-        BOOST_CHECK_EQUAL( (*o).a, 1 );
-        BOOST_CHECK_EQUAL( (*o).b, 2 );
-
-        Thing u(res); u.a=0; u.b=-1;
-        o = u;
-        BOOST_CHECK_EQUAL( res, 1 );
-        BOOST_CHECK_EQUAL( o->a, 0 );
-
-        Optional<Thing> o2(o);
-        BOOST_CHECK_EQUAL( o->a, 0 );
-    }
-    // res incremented by all of u, o & o2 dying
-    BOOST_CHECK_EQUAL( res, 4 );
-
-    {
-        Optional<std::unique_ptr<Thing>> o;
-    }
-
-    int unique_res=0;
-    std::unique_ptr<Thing> p(new Thing(unique_res));
-    p->a = 3; p->b = 4;
-    {
-        Optional<std::unique_ptr<Thing>> o(std::move(p));
-        BOOST_CHECK_EQUAL( unique_res, 0 );
-        BOOST_CHECK_EQUAL( (*o)->a, 3 );
-        
-        std::unique_ptr<Thing> q(new Thing(unique_res));
-        q->a = 5; q->b = 6;
-        o = std::move(q);
-        // unique_res now increments as the object originally pointed at by p
-        // has now been destroyed
-        BOOST_CHECK_EQUAL( unique_res, 1 );
-        BOOST_CHECK_EQUAL( (*o)->a, 5 );
-
-        Optional<std::unique_ptr<Thing>> o2(std::move(o));
-        BOOST_CHECK_EQUAL( unique_res, 1 );
-        BOOST_CHECK_EQUAL( (*o2)->a, 5 );
-    }
-    BOOST_CHECK_EQUAL( unique_res, 2 );
-#endif
-}
-
 
 
 void testIteratorAndIterable()
@@ -845,8 +786,7 @@ void addTests( test_suite *t )
     t->add( BOOST_TEST_CASE( testPartitions ) );
     t->add( BOOST_TEST_CASE( testCounter ) );
     t->add( BOOST_TEST_CASE( testShortInputs) );
-    //t->add( BOOST_TEST_CASE( testNonCopyable) );
-    //t->add( BOOST_TEST_CASE( testOptional ) );
+    t->add( BOOST_TEST_CASE( testNonCopyable) );
     t->add( BOOST_TEST_CASE( testIteratorAndIterable ) );
 }
 
