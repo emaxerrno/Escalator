@@ -9,6 +9,7 @@
 #include <sstream>
 #include <type_traits>
 
+#include <boost/optional.hpp>
 #include <boost/function.hpp>
 
 #include <boost/algorithm/string/trim.hpp>
@@ -26,138 +27,50 @@ if ( !(predicate) ) \
 
 
 namespace navetas { namespace escalator {
+
     template<typename T>
-    class Optional
+    class move_on_copy_wrapper
     {
-    private:
-        void assign(const T& val)
-        {
-            m_set = true;
-            new (&m_val.data) T(val);
-        }
-        void assign(T&& val)
-        {
-            m_set = true;
-            new (&m_val.data) T(std::move(val));
-        }
-
     public:
-        typedef T value_type;
-        Optional() : m_set(false) {}
-        Optional(const T& val)
+        move_on_copy_wrapper(T&& t):
+            m_value(std::move(t))
         {
-            assign(val);
-        }
-        Optional(T&& val) : m_set(true)
-        {
-            assign(std::move(val));
         }
 
-        Optional(const Optional& other)
+        move_on_copy_wrapper(move_on_copy_wrapper& other):
+            m_value(std::move(other.m_value))
         {
-            if(other.m_set) assign(other.get());
-            else m_set = false;
-        }
-        Optional& operator=(const Optional& other)
-        {
-            reset();
-            if(other.m_set) assign(other.get());
-            else m_set = false;
-        }
-        Optional(Optional&& other)
-        {
-            if(other.m_set)
-            {
-                assign(std::move(other.get()));
-                other.m_set = false;
-            }
-            else m_set = false;
-        }
-        Optional& operator=(Optional&& other)
-        {
-            reset();
-            if(other.m_set)
-            {
-                assign(std::move(other.get()));
-                other.m_set = false;
-            }
-            else m_set = false;
         }
 
-        Optional& operator=(const T& val)
+        move_on_copy_wrapper& operator=(move_on_copy_wrapper& other)
         {
-            // Support assignment to this->get()
-            if(getPtr() == &val) return *this;
-
-            reset();
-            assign(val);
+            m_value = std::move(other.m_value);
             return *this;
         }
-        Optional& operator=(T&& val)
+        
+        move_on_copy_wrapper(const move_on_copy_wrapper& other):
+            m_value(std::move(other.m_value))
         {
-            // Support assignment to this->get()
-            if(getPtr() == &val) return *this;
+        }
 
-            reset();
-            assign(std::move(val));
+        move_on_copy_wrapper& operator=(const move_on_copy_wrapper& other)
+        {
+            m_value = std::move(other.m_value);
             return *this;
         }
-
-        operator bool() { return m_set; }
-
-        T& get()
-        {
-            if(!m_set) throw std::runtime_error( "Optional not set" );
-            return *getPtr();
-        }
-        const T& get() const
-        {
-            if(!m_set) throw std::runtime_error( "Optional not set" );
-            return *getPtr();
-        }
-        T* getPtr()
-        {
-            return reinterpret_cast<T*>(&m_val.data);
-        }
-        const T* getPtr() const
-        {
-            return reinterpret_cast<const T*>(&m_val.data);
-        }
-
-        T* operator->() { return &get(); }
-        T& operator*() { return get(); }
-
-        void reset()
-        {
-            if(m_set)
-            {
-                get().~T();
-                m_set = false;
-            }
-        }
-
-        ~Optional()
-        {
-            reset();
-        }
+        
+        const T& get() const { return m_value; }
+        T& get() { return m_value; }
+        
     private:
-// TODO: When we move to gcc 4.8, both will support alignas
-#if defined(__clang__)
-        struct alignas(std::alignment_of<T>::value) space_t
-#else
-        struct space_t
-#endif
-        {
-            char data[sizeof(T)];
-        }
-#if !defined(__clang__)
-        __attribute__ ((aligned))
-#endif
-        ;
-
-        bool m_set;
-        space_t m_val;
+        mutable T   m_value;
     };
+    
+    template<typename T>
+    move_on_copy_wrapper<T> moc_wrap( T&& v )
+    {
+        return move_on_copy_wrapper<T>( std::move(v) );
+    }
 
     template<typename FunctorT, typename InputT>
     struct FunctorHelper
@@ -229,6 +142,14 @@ namespace navetas { namespace escalator {
         typedef std::reference_wrapper<typename std::remove_reference<T>::type> type;
         std::reference_wrapper<T> operator()( T& v ) { return v; }
     };
+    
+    template<typename T>
+    class Identity
+    {
+    public:
+        typedef T type;
+        T operator()( T t ) const { return t; }
+    };
 
     template<typename ContainerT>
     ContainerWrapper<ContainerT, typename ContainerT::value_type>
@@ -238,7 +159,8 @@ namespace navetas { namespace escalator {
     IteratorWrapper<
         ContainerT,
         typename ContainerT::const_iterator,
-        WrapWithReferenceWrapper<typename std::remove_reference<typename ContainerT::const_iterator::reference>::type>
+        //WrapWithReferenceWrapper<typename std::remove_reference<typename ContainerT::const_iterator::reference>::type>
+        Identity<typename ContainerT::iterator::value_type>
     >
     lift( const ContainerT& cont );
     
@@ -289,7 +211,7 @@ namespace navetas { namespace escalator {
         {
             ContainerType t;
             while ( it.hasNext() ) t.insert( t.end(), it.next() );
-            return std::move(t);
+            return t;
         }
         
         template<typename InputIterator>
@@ -314,7 +236,8 @@ namespace navetas { namespace escalator {
         
     public:
         typedef ElT el_t;
-        typedef typename remove_all_reference_then_remove_const<ElT>::type mutable_value_type;
+        //typedef typename remove_all_reference_then_remove_const<ElT>::type mutable_value_type;
+        typedef typename std::remove_const<typename std::remove_reference<ElT>::type>::type mutable_value_type;
         
         template< class OutputIterator >
         void toContainer( OutputIterator v ) 
@@ -338,25 +261,13 @@ namespace navetas { namespace escalator {
         }
         
         template<template<typename, typename ...> class Container>
-        typename ConversionHelper<RetainElT, Container>::ContainerType lower()
-        {
-            return ConversionHelper<RetainElT, Container>::lower( get().getIterator() );
-        }
-        
-        template<template<typename, typename ...> class Container>
-        ContainerWrapper<typename ConversionHelper<RetainElT, Container>::ContainerType, RetainElT> retain()
-        {
-            return ConversionHelper<RetainElT, Container>::retain( get().getIterator() );
-        }
-        
-        template<template<typename, typename ...> class Container>
-        typename ConversionHelper<mutable_value_type, Container>::ContainerType lower_values()
+        typename ConversionHelper<mutable_value_type, Container>::ContainerType lower()
         {
             return ConversionHelper<mutable_value_type, Container>::lower( get().getIterator() );
         }
         
         template<template<typename, typename ...> class Container>
-        ContainerWrapper<typename ConversionHelper<mutable_value_type, Container>::ContainerType, mutable_value_type> retain_values()
+        ContainerWrapper<typename ConversionHelper<mutable_value_type, Container>::ContainerType, mutable_value_type> retain()
         {
             return ConversionHelper<mutable_value_type, Container>::retain( get().getIterator() );
         }
@@ -388,9 +299,9 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             while ( it.hasNext() )
             {
-                ElT val = std::move(it.next());
-                if ( fn(val) ) res.first.push_back( std::move(val) );
-                else res.second.push_back( std::move(val) );
+                ElT val = it.next();
+                if ( fn(val) ) res.first.push_back( val );
+                else res.second.push_back( val );
             }
             
             return res;
@@ -409,8 +320,8 @@ namespace navetas { namespace escalator {
                 ElT val = it.next();
                 if ( !fn(val) ) inFirst = false;
                 
-                if ( inFirst ) res.first.push_back( std::move(val) );
-                else res.second.push_back( std::move(val) );
+                if ( inFirst ) res.first.push_back( val );
+                else res.second.push_back( val );
             }
             
             return res;
@@ -464,15 +375,15 @@ namespace navetas { namespace escalator {
                 0 );
         }
         
-        typedef MapWithStateWrapper<BaseT, std::function<std::pair<ElT, ElT>( ElT, Optional<ElT>& state )>, ElT, std::pair<ElT, ElT>, Optional<ElT>> sliding2_t;
+        typedef MapWithStateWrapper<BaseT, std::function<std::pair<ElT, ElT>( ElT, boost::optional<ElT>& state )>, ElT, std::pair<ElT, ElT>, boost::optional<ElT>> sliding2_t;
         sliding2_t sliding2()
         {
             auto it = get().getIterator();
-            Optional<ElT> startState;
+            boost::optional<ElT> startState;
             if ( it.hasNext() ) startState = it.next();
             return sliding2_t(
                 std::move(it),
-                []( ElT el, Optional<ElT>& state )
+                []( ElT el, boost::optional<ElT>& state )
                 {
                     std::pair<ElT, ElT> tp = std::pair<ElT, ElT>( state.get(), el );
                     state = el;
@@ -547,7 +458,7 @@ namespace navetas { namespace escalator {
             {
                 auto v = it.next();
                 auto key = keyFn(v);
-                grouped[std::move(key)].push_back( valueFn(std::move(v)) );
+                grouped[key].push_back( valueFn(v) );
             }
             
             return ContainerWrapper<
@@ -596,17 +507,17 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             while ( it.hasNext() )
             {
-                auto res = seen.insert( std::move( it.next() ) );
+                auto res = seen.insert( it.next() );
                 if ( res.second ) ordering.push_back( res.first );
             }
             
             std::vector<ElT> res;
             for ( auto& it : ordering )
             {
-                res.push_back( std::move(*it) );
+                res.push_back( *it );
             }
             
-            ContainerWrapper<std::vector<ElT>,  ElT> vw( std::move(res) );
+            ContainerWrapper<std::vector<ElT>,  ElT> vw( res );
             return vw;
         }
         
@@ -619,14 +530,14 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             while ( it.hasNext() )
             {
-                auto res = seen.insert( std::move( it.next() ) );
+                auto res = seen.insert( it.next() );
                 if ( res.second ) ordering.push_back( res.first );
             }
             
             std::vector<ElT> res;
             for ( auto& it : ordering )
             {
-                res.push_back( std::move(*it) );
+                res.push_back( *it );
             }
             
             ContainerWrapper<std::vector<ElT>,  ElT> vw( std::move(res) );
@@ -639,7 +550,7 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             while ( it.hasNext() )
             {
-                init = fn( std::move(init), std::move(it.next()) );
+                init = fn( init, it.next() );
             }
             return init;
         }
@@ -739,7 +650,7 @@ namespace navetas { namespace escalator {
             }
         }
         
-        //TODO: Should these use boost::optional to work round init requirements?
+        // TODO: Should these use boost::optional to work round init requirements?
         std::pair<size_t, mutable_value_type> argMin()
         {
             bool init = true;
@@ -749,19 +660,19 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             for ( int i = 0; it.hasNext(); ++i )
             {
-                if ( init ) ext = std::move(it.next());
+                if ( init ) ext = it.next();
                 else
                 {
-                    auto n = std::move(it.next());
+                    auto n = it.next();
                     if ( n < ext )
                     {
-                        ext = std::move(n);
+                        ext = n;
                         minIndex = i;
                     }
                 }
                 init = false;
             }
-            return std::make_pair( minIndex, std::move(ext) );
+            return std::make_pair( minIndex, ext );
         }
         
         std::pair<size_t, mutable_value_type> argMax()
@@ -773,19 +684,19 @@ namespace navetas { namespace escalator {
             auto it = get().getIterator();
             for ( int i = 0; it.hasNext(); ++i )
             {
-                if ( init ) ext = std::move(it.next());
+                if ( init ) ext = it.next();
                 else
                 {
-                    auto n = std::move(it.next());
+                    auto n = it.next();
                     if ( n > ext )
                     {
-                        ext = std::move(n);
+                        ext = n;
                         maxIndex = i;
                     }
                 }
                 init = false;
             }
-            return std::make_pair( maxIndex, std::move(ext) );
+            return std::make_pair( maxIndex, ext );
         }
         
         mutable_value_type min() { return std::template get<1>(argMin()); }
@@ -799,7 +710,7 @@ namespace navetas { namespace escalator {
             while ( it.hasNext() )
             {
                 if ( !init ) ss << sep;
-                auto val = std::move(it.next());
+                auto val = it.next();
                 ss << static_cast<const mutable_value_type&>(val);
                 init = false;
             }
@@ -825,13 +736,6 @@ namespace navetas { namespace escalator {
         {
             return FlatMapWrapper<BaseT, FunctorT, ElT, typename ElT::el_t, typename FunctorHelper<FunctorT, typename ElT::el_t>::out_t>( std::move(this->get().getIterator()), fn );
         }
-
-        template<typename T>
-        class Identity
-        {
-        public:
-            T operator()( T t ) const { return t; }
-        };
         
         FlatMapWrapper<BaseT, Identity<typename ElT::el_t>, ElT, typename ElT::el_t, typename ElT::el_t> flatten()
         {
@@ -866,7 +770,7 @@ namespace navetas { namespace escalator {
 
         ElT next()
         {
-            ElT v = std::move(m_next.get());
+            ElT v = m_next.get();
             populateNext();
             return v;
         }
@@ -879,10 +783,10 @@ namespace navetas { namespace escalator {
             m_next.reset();
             while ( m_source.hasNext() )
             {
-                ElT next = std::move(m_source.next());
+                ElT next = m_source.next();
                 if ( m_fn( next ) )
                 {
-                    m_next = std::move(next);
+                    m_next = next;
                     break;
                 }
             }
@@ -891,7 +795,7 @@ namespace navetas { namespace escalator {
     private:
         typename Source::Iterator   m_source;
         FunctorT                    m_fn;
-        Optional<ElT>               m_next;
+        boost::optional<ElT>        m_next;
     };
 
     template<typename Source, typename FunctorT, typename InnerT, typename InputT, typename ElT>
@@ -908,7 +812,7 @@ namespace navetas { namespace escalator {
         ElT next()
         {
             if ( m_requirePopulateNext ) populateNext();
-            ElT res = m_fn( std::move(m_next.get()) ); // Moves through here OK
+            ElT res = m_fn( m_next.get() );
             m_requirePopulateNext = true;
             return res;
         }
@@ -925,15 +829,15 @@ namespace navetas { namespace escalator {
             m_next.reset();
             while ( (!m_innerIt || !m_innerIt->hasNext()) && m_source.hasNext() )
             {
-                // We need to take ownership of the inner object as well as its
+                // We need to take a copy of the inner object as well as its
                 // iterator as otherwise the iterator may be a dangling pointer
-                m_inner = std::move(m_source.next());
+                m_inner = m_source.next();
                 m_innerIt = m_inner->getIterator();
             }
             
             if ( m_innerIt && m_innerIt->hasNext() )
             {
-                m_next = std::move(m_innerIt->next());
+                m_next = m_innerIt->next();
             }
             
             m_requirePopulateNext = false;
@@ -942,13 +846,13 @@ namespace navetas { namespace escalator {
     private:
         typedef std::function<ElT(InputT)> FunctorHolder_t;
         
-        typename Source::Iterator           m_source;
-        FunctorHolder_t                     m_fn;
-        Optional<InnerT>                    m_inner;
-        Optional<typename InnerT::Iterator> m_innerIt;
-        Optional<InputT>                    m_next;
+        typename Source::Iterator                   m_source;
+        FunctorHolder_t                             m_fn;
+        boost::optional<InnerT>                     m_inner;
+        boost::optional<typename InnerT::Iterator>  m_innerIt;
+        boost::optional<InputT>                     m_next;
         
-        bool                                m_requirePopulateNext;
+        bool                                        m_requirePopulateNext;
     };
 
     template<typename Source, typename InputT>
@@ -985,7 +889,7 @@ namespace navetas { namespace escalator {
         typedef MapWrapper<Source, FunctorT, InputT, ElT> Iterator;
         Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source.hasNext(); }
-        ElT next() { return m_fn( std::move(m_source.next()) ); }
+        ElT next() { return m_fn( m_source.next() ); }
     
     private:
         typedef std::function<ElT(InputT)> FunctorHolder_t;
@@ -1037,7 +941,7 @@ namespace navetas { namespace escalator {
         typedef MapWithStateWrapper<Source, FunctorT, InputT, ElT, StateT> Iterator;
         Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source.hasNext(); }
-        ElT next() { return m_fn( std::move(m_source.next()), m_state ); }
+        ElT next() { return m_fn( m_source.next(), m_state ); }
     
     private:
         typename Source::Iterator   m_source;
@@ -1197,7 +1101,7 @@ namespace navetas { namespace escalator {
     };
     
     template<typename Container, typename ElT>
-    class ContainerWrapper : public Conversions<ContainerWrapper<Container, ElT>, std::reference_wrapper<ElT>, ElT>
+    class ContainerWrapper : public Conversions<ContainerWrapper<Container, ElT>, ElT, ElT>
     {
     public:
         typedef typename Container::iterator iterator;
@@ -1240,7 +1144,8 @@ namespace navetas { namespace escalator {
         typedef IteratorWrapper<
             Container,
             typename Container::iterator,
-            WrapWithReferenceWrapper<typename std::remove_reference<typename Container::iterator::reference>::type>> Iterator;
+            //WrapWithReferenceWrapper<typename std::remove_reference<typename Container::iterator::reference>::type>> Iterator;
+            Identity<typename Container::iterator::value_type>> Iterator;
         
         Iterator getIterator() { return Iterator( m_data.begin(), m_data.end() ); }
         
@@ -1289,7 +1194,7 @@ namespace navetas { namespace escalator {
         StreamT&       m_stream;
     };
 
-    template<typename ValueT>
+    /*template<typename ValueT>
     class OptionalWrapper : public Conversions<OptionalWrapper<ValueT>, typename ValueT::value_type, typename ValueT::value_type>
     {
     public:
@@ -1305,7 +1210,7 @@ namespace navetas { namespace escalator {
         }
     private:
         ValueT m_op;
-    };
+    };*/
 
     class IStreamWrapper : public Conversions<IStreamWrapper, std::string, std::string>
     {
@@ -1320,7 +1225,7 @@ namespace navetas { namespace escalator {
         bool hasNext() { return m_hasNext; }
         std::string next()
         {
-            std::string curr = std::move(m_currLine);
+            std::string curr = m_currLine;
             populateNext();
             return curr;
         }
@@ -1390,24 +1295,41 @@ namespace navetas { namespace escalator {
         return ContainerWrapper<ContainerT, typename ContainerT::value_type>( std::forward<ContainerT>(cont) );
     }
 
-    template<typename ElT>
+    /*template<typename ElT>
     inline OptionalWrapper<Optional<ElT>>
     clift( Optional<ElT>&& op )
     {
         return OptionalWrapper<Optional<ElT>>( std::forward<Optional<ElT>>(op) );
-    }
+    }*/
 
     template<typename ContainerT>
     IteratorWrapper<
         ContainerT,
         typename ContainerT::const_iterator,
-        WrapWithReferenceWrapper<typename std::remove_reference<typename ContainerT::const_iterator::reference>::type>>
+        //WrapWithReferenceWrapper<typename std::remove_reference<typename ContainerT::const_iterator::reference>::type>>
+        Identity<typename ContainerT::iterator::value_type>
+    >
     lift( const ContainerT& cont )
     {
         return IteratorWrapper<
             ContainerT,
             typename ContainerT::const_iterator,
-            WrapWithReferenceWrapper<typename std::remove_reference<typename ContainerT::const_iterator::reference>::type>>( cont.begin(), cont.end() );
+            //WrapWithReferenceWrapper<typename std::remove_reference<typename ContainerT::const_iterator::reference>::type>>( cont.begin(), cont.end() );
+            Identity<typename ContainerT::iterator::value_type>>( cont.begin(), cont.end() );
+    }
+    
+    template<typename ContainerT>
+    IteratorWrapper<
+        ContainerT,
+        typename ContainerT::iterator,
+        Identity<typename ContainerT::iterator::reference>
+    >
+    lift_ref( ContainerT& cont )
+    {
+        return IteratorWrapper<
+            ContainerT,
+            typename ContainerT::iterator,
+            Identity<typename ContainerT::iterator::reference>>( cont.begin(), cont.end() );
     } 
 
     template<typename ContainerT>
