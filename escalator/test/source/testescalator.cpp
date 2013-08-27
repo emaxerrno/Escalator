@@ -9,14 +9,6 @@ using namespace boost::unit_test;
 
 using namespace navetas::escalator;
 
-
-// TODO:
-//
-// * Fix flatten
-// * Lift by value of map/multimap should strip const from first element of pair
-//   at least when returning from groupBy and countBy
-
-
 template<typename T1, typename T2>
 void CHECK_SAME_ELEMENTS( const T1& t1, const T2& t2 )
 {
@@ -181,30 +173,15 @@ void testStructuralRequirements()
     }
     
     {
-        std::vector<int> b = { 1, 2, 3, 4, 5, 4, 3, 2, 1, 6, 7, 8, 9 };
+        std::vector<int> b = { 1, 3, 1, 3, 2, 3, 4, 5, 4, 3, 2, 1, 6, 7, 8, 9 };
         auto res = lift(b)
             .countBy( []( int v ) { return v % 2; } )
-            .checkIteratorElementType<std::pair<const int, size_t>>()
-            //.lower<std::vector>()
-            // This map is nasty - but without removing the const from the first half of the pair,
-            // we are unable to retain this pair by value into a container as the STL containers
-            // will not take immutable elements.
+            .sortBy( []( const std::pair<int, size_t>& p ) { return p.second; } )
+            .lower<std::map>();
             
-            // TODO: Get the collection wrapper iterator, in this instance (and sortBy etc), to strip the const whilst retaining the const in the inner map?
-            
-            //.map( []( const std::pair<const int, size_t> p ) { return std::pair<int, size_t>( p.first, p.second ); } )
-            ;//.sortBy( []( const std::pair<int, size_t>& p ) { return p.second; } );
-    }
-    
-    {
-        std::map<int, short> m = { {1, 2}, {3, 4}, {5, 6} };
-        
-        //int foo = lift(m);
-        //lift(m)
-        //    .checkIteratorElementType<std::reference_wrapper<std::pair<int, short>>>();
-    }
-    
-    
+        BOOST_CHECK_EQUAL( res[0], 6 );
+        BOOST_CHECK_EQUAL( res[1], 10 );
+    }    
 }
 
 void test1()

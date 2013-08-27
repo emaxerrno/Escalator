@@ -77,6 +77,46 @@ namespace navetas { namespace escalator {
     {
         typedef decltype(std::declval<FunctorT>()( std::declval<InputT>() )) out_t;
     };
+    
+    template<typename T>
+    class IdentityFunctor
+    {
+    public:
+        typedef T type;
+        T operator()( T t ) const { return t; }
+    };
+    
+    template<typename T>
+    class CopyFunctor
+    {
+    public:
+        typedef typename std::remove_reference<T>::type type;
+        type operator()( T t ) const { return t; }
+    };
+    
+    template<typename T>
+    class CopyStripConstFunctor
+    {
+    public:
+        typedef typename std::remove_const<typename std::remove_reference<T>::type>::type type;
+        type operator()( T t ) const { return t; }
+    };
+    
+    
+    template<typename Container>
+    struct SanitiseMapPairWrapper
+    {
+        template<typename T>
+        using TransformFunctor=CopyStripConstFunctor<T>;
+    };
+    
+    template<typename T>
+    class DeconstMapKeyFunctor
+    {
+    public:
+        typedef std::pair<typename std::remove_const<typename T::first_type>::type, typename T::second_type> type;
+        type operator()( const T& kvp ) { return type( kvp.first, kvp.second ); }    
+    };
 
     template<typename Source, typename InputT>
     class CopyWrapper;
@@ -96,7 +136,7 @@ namespace navetas { namespace escalator {
     template<typename ContainerT, typename IterT, template<typename> class FunctorT>
     class IteratorWrapper;
     
-    template<typename Container, typename ElT>
+    template<typename Container, typename ElT, template<typename> class IteratorTransformFunctorT=IdentityFunctor>
     class ContainerWrapper;
 
     enum SliceBehavior
@@ -143,29 +183,7 @@ namespace navetas { namespace escalator {
         type operator()( T& v ) { return v; }
     };
     
-    template<typename T>
-    class IdentityFunctor
-    {
-    public:
-        typedef T type;
-        T operator()( T t ) const { return t; }
-    };
     
-    template<typename T>
-    class CopyFunctor
-    {
-    public:
-        typedef typename std::remove_reference<T>::type type;
-        type operator()( T t ) const { return t; }
-    };
-    
-    template<typename T>
-    class CopyStripConstFunctor
-    {
-    public:
-        typedef typename std::remove_const<typename std::remove_reference<T>::type>::type type;
-        type operator()( T t ) const { return t; }
-    };
 
     template<typename ContainerT>
     ContainerWrapper<ContainerT, typename ContainerT::value_type>
@@ -454,7 +472,8 @@ namespace navetas { namespace escalator {
         auto groupBy( KeyFunctorT keyFn, ValueFunctorT valueFn ) ->
             ContainerWrapper<
                 std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>,
-                std::pair<const typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>>
+                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>,
+                DeconstMapKeyFunctor>
         {
             typedef typename FunctorHelper<KeyFunctorT, ElT>::out_t key_t;
             typedef typename FunctorHelper<ValueFunctorT, ElT>::out_t mutable_value_type;
@@ -470,7 +489,8 @@ namespace navetas { namespace escalator {
             
             return ContainerWrapper<
                 std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>,
-                std::pair<const typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>>
+                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, std::vector<typename FunctorHelper<ValueFunctorT, ElT>::out_t>>,
+                DeconstMapKeyFunctor>
                 (grouped);
         }
         
@@ -478,7 +498,8 @@ namespace navetas { namespace escalator {
         auto countBy( KeyFunctorT keyFn ) ->
             ContainerWrapper<
                 std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>,
-                std::pair<const typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>>
+                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>,
+                DeconstMapKeyFunctor>
         {
             typedef typename FunctorHelper<KeyFunctorT, ElT>::out_t key_t;
             
@@ -501,7 +522,8 @@ namespace navetas { namespace escalator {
             
             return ContainerWrapper<
                 std::map<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>,
-                std::pair<const typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>>( counts );
+                std::pair<typename FunctorHelper<KeyFunctorT, ElT>::out_t, size_t>,
+                DeconstMapKeyFunctor>( counts );
         }
         
         // TODO : Note that this forces evaluation of the input stream
@@ -963,36 +985,6 @@ namespace navetas { namespace escalator {
         typedef ValueT type;
         ValueT& operator()( ValueT& v ) const { return v; }
     };
-    
-    // Strip the const from the first element of a map/multimap pair before
-    // exposing it to Escalator
-    /*template<typename KeyT, typename ValueT, typename ElT>
-    class ContainerIteratorTransformer<std::map<KeyT, ValueT>, ElT>
-    {
-    public:
-        typedef std::pair<KeyT, ValueT> type;
-        
-        type operator()( ValueT v ) const
-        {
-            return type( v.first, v.second );
-        }
-    };*/
-    
-    /*template<typename IterT>
-    class IteratorDereferenceType
-    {
-    public:
-        typedef typename std::remove_reference<typename IterT::reference>::type type;
-    };
-    
- 
-    
-    template<typename ContainerT, typename IterT>
-    using TransformedIteratorType =
-            ContainerIteratorTransformer<
-                ContainerT,
-                typename IteratorDereferenceType<IterT>::type>;*/
-                
 
     template<typename IterT, template<typename> class FunctorT>
     class TransformedValue
@@ -1107,7 +1099,7 @@ namespace navetas { namespace escalator {
         SliceBehavior               m_behavior;
     };
     
-    template<typename Container, typename ElT>
+    template<typename Container, typename ElT, template<typename> class IteratorTransformFunctorT>
     class ContainerWrapper : public Conversions<ContainerWrapper<Container, ElT>, ElT, ElT>
     {
     public:
@@ -1152,7 +1144,7 @@ namespace navetas { namespace escalator {
         typedef IteratorWrapper<
             Container,
             typename Container::iterator,
-            CopyFunctor> Iterator;
+            IteratorTransformFunctorT> Iterator;
         
         Iterator getIterator() { return Iterator( m_data.begin(), m_data.end() ); }
         
