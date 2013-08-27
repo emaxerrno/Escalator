@@ -219,13 +219,13 @@ namespace navetas { namespace escalator {
         typedef decltype( std::declval<FunctorT<IteratorDereferenceType>>()( std::declval<IteratorDereferenceType>() ) ) type;
     };
    
-    template<typename ContainerT, typename IterT, template<typename> class FunctorT>
-    class IteratorWrapper : public Conversions<IteratorWrapper<ContainerT, IterT, FunctorT>,
+    template<typename IterT, template<typename> class FunctorT>
+    class IteratorWrapper : public Conversions<IteratorWrapper<IterT, FunctorT>,
         typename TransformedValue<IterT, FunctorT>::type,
         typename TransformedValue<IterT, FunctorT>::type>
     {
     public:
-        typedef IteratorWrapper<ContainerT, IterT, FunctorT> self_t;
+        typedef IteratorWrapper<IterT, FunctorT> self_t;
         
         typedef FunctorT<typename IterT::reference> transformer_t;
         typedef typename transformer_t::type el_t;
@@ -234,7 +234,7 @@ namespace navetas { namespace escalator {
         {
         }
         
-        typedef IteratorWrapper<ContainerT, IterT, FunctorT> Iterator;
+        typedef IteratorWrapper<IterT, FunctorT> Iterator;
         Iterator& getIterator() { return *this; }
         
         bool hasNext()
@@ -367,7 +367,6 @@ namespace navetas { namespace escalator {
         }
         
         typedef IteratorWrapper<
-            Container,
             typename Container::iterator,
             IteratorTransformFunctorT> Iterator;
         
@@ -522,54 +521,53 @@ namespace navetas { namespace escalator {
 
     template<typename ContainerT>
     IteratorWrapper<
-        ContainerT,
         typename ContainerT::const_iterator,
         CopyStripConstFunctor>
     lift( const ContainerT& cont )
     {
         return IteratorWrapper<
-            ContainerT,
             typename ContainerT::const_iterator,
             CopyStripConstFunctor>( cont.begin(), cont.end() );
     }
     
     template<typename ContainerT>
     IteratorWrapper<
-        ContainerT,
         typename ContainerT::iterator,
         IdentityFunctor>
     lift_ref( ContainerT& cont )
     {
         return IteratorWrapper<
-            ContainerT,
             typename ContainerT::iterator,
             IdentityFunctor>( cont.begin(), cont.end() );
     }
     
     template<typename ContainerT>
     IteratorWrapper<
-        ContainerT,
         typename ContainerT::const_iterator,
         IdentityFunctor>
     lift_cref( ContainerT& cont )
     {
         return IteratorWrapper<
-            ContainerT,
             typename ContainerT::const_iterator,
             IdentityFunctor>( cont.begin(), cont.end() );
     }
     
     template<typename ContainerT>
     IteratorWrapper<
-        ContainerT,
         typename ContainerT::iterator,
         WrapWithReferenceWrapper>
     lift_ref_wrapped( ContainerT& cont )
     {
         return IteratorWrapper<
-            ContainerT,
             typename ContainerT::iterator,
             WrapWithReferenceWrapper>( cont.begin(), cont.end() );
+    }
+    
+    template<typename IterT>
+    IteratorWrapper<IterT, IdentityFunctor>
+    lift( IterT begin, IterT end )
+    {
+        return IteratorWrapper<IterT, IdentityFunctor>( begin, end );
     }
     
 }}

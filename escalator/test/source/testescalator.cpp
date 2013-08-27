@@ -44,7 +44,10 @@ void testStructuralRequirements()
         std::vector<int> res6 = lift(a)
             .filter( []( const int& v ) { return v > 2; } )
             .sortWith( []( const int& l, const int& r ) { return l < r; } )
-            .retain<std::vector>();  
+            .retain<std::vector>();
+            
+        BOOST_CHECK_EQUAL( lift( a.begin(), a.end() ).sum(), 15 );
+        BOOST_CHECK_EQUAL( lift( a.rbegin(), a.rend() ).sum(), 15 );
     }
     
     typedef std::unique_ptr<int> upInt_t;

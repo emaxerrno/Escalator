@@ -23,28 +23,24 @@ namespace navetas { namespace escalator {
     template<typename Source, typename FunctorT, typename ElT>
     class FilterWrapper;
     
-    template<typename ContainerT, typename IterT, template<typename> class FunctorT>
+    template<typename IterT, template<typename> class FunctorT>
     class IteratorWrapper;
     
     template<typename Container, typename ElT, template<typename> class IteratorTransformFunctorT=IdentityFunctor>
     class ContainerWrapper;
-
-    
+   
     template<typename SourceT, typename ElT>
     class SliceWrapper;
     
     template<typename Source1T, typename El1T, typename Source2T, typename El2T>
     class ZipWrapper;
  
-    
-
     template<typename ContainerT>
     ContainerWrapper<ContainerT, typename ContainerT::value_type>
     clift( ContainerT&& cont );
 
     template<typename ContainerT>
     IteratorWrapper<
-        ContainerT,
         typename ContainerT::const_iterator,
         CopyStripConstFunctor>
     lift( const ContainerT& cont );
