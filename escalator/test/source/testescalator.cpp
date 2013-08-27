@@ -660,7 +660,7 @@ void testCounter()
     CHECK_SAME_ELEMENTS( counter().take(5).lower<std::vector>(), std::vector<int> { 0, 1, 2, 3, 4 } );
 }
 
-void testStream()
+void testGenericLift()
 {
     class Source
     {
@@ -676,7 +676,9 @@ void testStream()
 
     Source s;
     s.m_val = 1;
-    std::vector<int> res = slift(s).take(2).retain<std::vector>();
+    std::vector<int> res = lift_generic(
+        [&s]() { return !s.eof(); },
+        [&s]() { return s.pop(); } ).take(2).retain<std::vector>();
     CHECK_SAME_ELEMENTS( res, std::vector<int> { 1, 1 } );
 }
 
@@ -776,7 +778,7 @@ void addTests( test_suite *t )
     t->add( BOOST_TEST_CASE( test1 ) );
     t->add( BOOST_TEST_CASE( testFlatMap ) );
     t->add( BOOST_TEST_CASE( test3 ) );
-    t->add( BOOST_TEST_CASE( testStream ) );
+    t->add( BOOST_TEST_CASE( testGenericLift ) );
     t->add( BOOST_TEST_CASE( testStringManip ) );
     t->add( BOOST_TEST_CASE( testPartitions ) );
     t->add( BOOST_TEST_CASE( testCounter ) );

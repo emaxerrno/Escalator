@@ -397,26 +397,7 @@ namespace navetas { namespace escalator {
     private:
         int m_count;
     };
-
-    template<typename StreamT>
-    class StreamWrapper : public Conversions<StreamWrapper<StreamT>, typename StreamT::value_type, typename StreamT::value_type>
-    {
-    public:
-        StreamWrapper( StreamT& stream ) : m_stream(stream) {}
-        
-        typedef StreamWrapper<StreamT> Iterator;
-        Iterator& getIterator() { return *this; }
-        bool hasNext() { return !m_stream.eof(); }
-        
-        typename StreamT::value_type next()
-        {
-            return m_stream.pop();
-        }
-        
-    private:
-        StreamT&       m_stream;
-    };
-
+    
     /*template<typename ValueT>
     class OptionalWrapper : public Conversions<OptionalWrapper<ValueT>, typename ValueT::value_type, typename ValueT::value_type>
     {
@@ -434,6 +415,28 @@ namespace navetas { namespace escalator {
     private:
         ValueT m_op;
     };*/
+    
+    template<typename HasNextFnT, typename GetNextFnT>
+    class GenericWrapper : public Conversions<GenericWrapper<HasNextFnT, GetNextFnT>,
+        decltype( std::declval<GetNextFnT>()() ),
+        decltype( std::declval<GetNextFnT>()() )>
+    {
+    public:
+        GenericWrapper( HasNextFnT hasNextFn, GetNextFnT getNextFn ) :
+            m_hasNextFn(hasNextFn), m_getNextFn(getNextFn)
+        {
+        }
+        
+        typedef GenericWrapper<HasNextFnT, GetNextFnT> Iterator;
+        Iterator& getIterator() { return *this; }
+        
+        bool hasNext() { return m_hasNextFn(); }
+        decltype( std::declval<GetNextFnT>()() ) next() { return m_getNextFn(); }
+        
+    private:
+        HasNextFnT      m_hasNextFn;
+        GetNextFnT      m_getNextFn;
+    };
 
     class IStreamWrapper : public Conversions<IStreamWrapper, std::string, std::string>
     {
@@ -508,9 +511,6 @@ namespace navetas { namespace escalator {
     inline IStreamWrapper lift( std::istream& data ) { return IStreamWrapper(data); }
     inline StringWrapper lift( const std::string& data ) { return StringWrapper(data); }
     
-    template<typename StreamT>
-    StreamWrapper<StreamT> slift( StreamT& stream ) { return StreamWrapper<StreamT>( stream ); }
-
     template<typename ContainerT>
     ContainerWrapper<ContainerT, typename ContainerT::value_type>
     lift_copy_container( ContainerT&& cont )
@@ -568,6 +568,13 @@ namespace navetas { namespace escalator {
     lift( IterT begin, IterT end )
     {
         return IteratorWrapper<IterT, IdentityFunctor>( begin, end );
+    }
+    
+    template<typename HasNextFnT, typename GetNextFnT>
+    GenericWrapper<HasNextFnT, GetNextFnT>
+    lift_generic( HasNextFnT hasNextFn, GetNextFnT getNextFn )
+    {
+        return GenericWrapper<HasNextFnT, GetNextFnT>( hasNextFn, getNextFn );
     }
     
 }}
