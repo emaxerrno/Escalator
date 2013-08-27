@@ -1,9 +1,9 @@
 #define BOOST_TEST_DYN_LINK
 
-#include "escalator.hpp"
-
 #include <boost/test/unit_test.hpp>
 #include <boost/lexical_cast.hpp>
+
+#include "escalator.hpp"
 
 using namespace boost::unit_test;
 
