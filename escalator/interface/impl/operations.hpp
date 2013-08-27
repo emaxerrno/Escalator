@@ -171,7 +171,7 @@ namespace navetas { namespace escalator {
         typedef ZipWrapper<Source1T, El1T, Source2T, El2T> Iterator;
         Iterator& getIterator() { return *this; }
         bool hasNext() { return m_source1.hasNext() && m_source2.hasNext(); }
-        std::pair<El1T, El2T> next() { return std::make_pair( std::move(m_source1.next()), std::move(m_source2.next()) ); }
+        std::pair<El1T, El2T> next() { return std::make_pair( m_source1.next(), m_source2.next() ); }
         
     private:
         typename Source1T::Iterator m_source1;
