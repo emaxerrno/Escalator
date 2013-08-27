@@ -595,6 +595,17 @@ namespace navetas { namespace escalator {
             WrapWithReferenceWrapper>( cont.begin(), cont.end() );
     }
     
+    template<typename ContainerT>
+    IteratorWrapper<
+        typename ContainerT::const_iterator,
+        WrapWithReferenceWrapper>
+    lift_cref_wrapped( ContainerT& cont )
+    {
+        return IteratorWrapper<
+            typename ContainerT::const_iterator,
+            WrapWithReferenceWrapper>( cont.begin(), cont.end() );
+    }
+    
     template<typename HasNextFnT, typename GetNextFnT>
     GenericWrapper<HasNextFnT, GetNextFnT>
     lift_generic( HasNextFnT hasNextFn, GetNextFnT getNextFn )
@@ -608,6 +619,8 @@ namespace navetas { namespace escalator {
     {
         return OptionalWrapper<ElT>( op );
     }
+    
+    
     
 }}
 

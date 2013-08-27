@@ -157,6 +157,33 @@ void testStructuralRequirements()
         CHECK_SAME_ELEMENTS( res3, std::vector<int> { 9, 1, 16, 16, 4 } );
     }
     
+    // Test 
+    {
+        std::vector<upInt_t> a;
+        a.emplace_back( new int(3) );
+        a.emplace_back( new int(1) );
+        a.emplace_back( new int(4) );
+        a.emplace_back( new int(4) );
+        a.emplace_back( new int(2) );
+        
+        lift_cref(a)
+            .foreach( []( const upInt_t& v )
+            {
+            } );
+        
+        lift_ref_wrapped(a).zip( lift_ref_wrapped(a) )
+            .foreach( []( const std::pair<std::reference_wrapper<upInt_t>, std::reference_wrapper<upInt_t>>& p )
+            {
+            } );
+            
+        const std::vector<upInt_t>& b = a;
+        
+        lift_ref_wrapped(a).zip( lift_cref_wrapped(b) )
+            .foreach( []( const std::pair<std::reference_wrapper<upInt_t>, std::reference_wrapper<const upInt_t>>& p )
+            {
+            } );
+    }
+    
     {
         std::vector<std::vector<int>> p = { { 1, 2, 3 }, { 4, 5 }, {}, { 6 } };
         
