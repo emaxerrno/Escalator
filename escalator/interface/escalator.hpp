@@ -1335,6 +1335,20 @@ namespace navetas { namespace escalator {
     template<typename ContainerT>
     IteratorWrapper<
         ContainerT,
+        typename ContainerT::const_iterator,
+        Identity<typename ContainerT::const_iterator::reference>
+    >
+    lift_cref( ContainerT& cont )
+    {
+        return IteratorWrapper<
+            ContainerT,
+            typename ContainerT::const_iterator,
+            Identity<typename ContainerT::const_iterator::reference>>( cont.begin(), cont.end() );
+    }
+    
+    template<typename ContainerT>
+    IteratorWrapper<
+        ContainerT,
         typename ContainerT::iterator,
         WrapWithReferenceWrapper<typename std::remove_reference<typename ContainerT::iterator::reference>::type>>
     lift_ref_wrapped( ContainerT& cont )

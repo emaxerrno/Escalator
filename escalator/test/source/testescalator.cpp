@@ -476,7 +476,22 @@ LambdaWrapper<T> makeLambdaWrapper( T fn ) { return LambdaWrapper<T>(fn); }
 void testFlatMap()
 {
     std::vector<std::vector<int>> d = { {1, 2, 3, 4, 5, 6, 7}, {4, 5}, {6}, {}, { 7, 8, 9, 10 } };
-    
+
+    {
+        auto v = lift_cref(d)
+            .map( []( const std::vector<int>& inner ) { return lift_cref(inner); } )
+            .retain<std::vector>();
+        
+        auto fsummed = v.flatMap( []( int v ) { return v + 1; } ).lower<std::vector>();
+        
+        CHECK_SAME_ELEMENTS( fsummed, std::vector<int> { 2, 3, 4, 5, 6, 7, 8, 5, 6, 7, 8, 9, 10, 11 } );
+        
+        auto fsummed2 = v.flatten().map( []( int v ) { return v + 1; } ).lower<std::vector>();
+
+        CHECK_SAME_ELEMENTS( fsummed, fsummed2 );
+    }
+                    
+
 #if 0
     {
         auto addOneBase = mlift(d)
@@ -492,7 +507,7 @@ void testFlatMap()
             CHECK_SAME_ELEMENTS( r.first, r.second );
         } );
     }
-
+    
 
     // flatMap
     {
