@@ -517,6 +517,21 @@ namespace navetas { namespace escalator {
     {
         return ContainerWrapper<ContainerT, typename ContainerT::value_type>( std::forward<ContainerT>(cont) );
     }
+    
+    template<typename IterT>
+    IteratorWrapper<IterT, CopyStripConstFunctor>
+    lift( IterT begin, IterT end )
+    {
+        return IteratorWrapper<IterT, CopyStripConstFunctor>( begin, end );
+    }
+    
+    template<typename IterT>
+    IteratorWrapper<IterT, IdentityFunctor>
+    lift_ref( IterT begin, IterT end )
+    {
+        return IteratorWrapper<IterT, IdentityFunctor>( begin, end );
+    }
+
 
 
     template<typename ContainerT>
@@ -563,12 +578,7 @@ namespace navetas { namespace escalator {
             WrapWithReferenceWrapper>( cont.begin(), cont.end() );
     }
     
-    template<typename IterT>
-    IteratorWrapper<IterT, IdentityFunctor>
-    lift( IterT begin, IterT end )
-    {
-        return IteratorWrapper<IterT, IdentityFunctor>( begin, end );
-    }
+    
     
     template<typename HasNextFnT, typename GetNextFnT>
     GenericWrapper<HasNextFnT, GetNextFnT>

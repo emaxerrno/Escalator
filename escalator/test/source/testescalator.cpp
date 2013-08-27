@@ -50,6 +50,14 @@ void testStructuralRequirements()
         BOOST_CHECK_EQUAL( lift( a.rbegin(), a.rend() ).sum(), 15 );
     }
     
+    {
+        std::vector<int> a = { 5, 4, 3, 2, 1 };
+        lift_ref( a.begin(), a.end() )
+            .foreach( []( int& v ) { v += 1; } );
+            
+        CHECK_SAME_ELEMENTS( a, std::vector<int> { 6, 5, 4, 3, 2 } );
+    }
+    
     typedef std::unique_ptr<int> upInt_t;
     
     {
