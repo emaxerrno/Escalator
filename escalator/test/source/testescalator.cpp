@@ -57,26 +57,28 @@ void testStructuralRequirements()
     
     typedef std::unique_ptr<int> upInt_t;
     
-    std::vector<upInt_t> a;
-    a.emplace_back( new int(3) );
-    a.emplace_back( new int(1) );
-    a.emplace_back( new int(4) );
-    a.emplace_back( new int(4) );
-    a.emplace_back( new int(2) );
-    
-    std::vector<upInt_t> res1 = mlift(a)
-        .map( []( upInt_t& v ) { return std::move(v); } )
-        .lower<std::vector>();
-        
-    // Check that ownership has been transferred as expected
-    BOOST_REQUIRE( !a[0] );
-    BOOST_REQUIRE( res1[0] );
- 
-    mlift(res1).foreach( []( upInt_t& v )
     {
-        bool valid = static_cast<bool>(v);
-        BOOST_REQUIRE( valid );
-    } );
+        std::vector<upInt_t> a;
+        a.emplace_back( new int(3) );
+        a.emplace_back( new int(1) );
+        a.emplace_back( new int(4) );
+        a.emplace_back( new int(4) );
+        a.emplace_back( new int(2) );
+        
+        std::vector<upInt_t> res1 = lift_ref_wrapped(a)
+            .map( []( upInt_t& v ) { return std::move(v); } )
+            .lower<std::vector>();
+            
+        // Check that ownership has been transferred as expected
+        BOOST_REQUIRE( !a[0] );
+        BOOST_REQUIRE( res1[0] );
+     
+        lift_ref_wrapped(res1).foreach( []( upInt_t& v )
+        {
+            bool valid = static_cast<bool>(v);
+            BOOST_REQUIRE( valid );
+        } );
+    }
         
     // Check move-on-copy semantics with unique_ptr
     {
@@ -155,7 +157,7 @@ void testStructuralRequirements()
     {
         std::vector<std::vector<int>> p = { { 1, 2, 3 }, { 4, 5 }, {}, { 6 } };
         
-        auto cpP = lift(p)
+        auto cpP = lift_cref(p)
             .map( []( const std::vector<int>& row )
             {
                 return lift(row)
@@ -169,15 +171,13 @@ void testStructuralRequirements()
         BOOST_CHECK_EQUAL( 27, numberSum );
             
         // Run over the container twice
-        /*CHECK_SAME_ELEMENTS( cpP
-            .copyElements()
+        CHECK_SAME_ELEMENTS( cpP
             .flatten()
             .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
             
         CHECK_SAME_ELEMENTS( cpP
-            .copyElements()
             .flatten()
-            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );*/
+            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
     }
     
     {
@@ -476,7 +476,24 @@ LambdaWrapper<T> makeLambdaWrapper( T fn ) { return LambdaWrapper<T>(fn); }
 void testFlatMap()
 {
     std::vector<std::vector<int>> d = { {1, 2, 3, 4, 5, 6, 7}, {4, 5}, {6}, {}, { 7, 8, 9, 10 } };
+    
+    // Reference lifting of inner types
+    {
+        auto addOneBase = lift_ref_wrapped(d)
+            .map( []( const std::vector<int>& v )
+            {
+                return lift(v).lower<std::vector>();
+            } )
+            .retain<std::vector>();
+        
+    
+        addOneBase.zip(lift(d)).foreach( []( std::pair<std::vector<int>, std::vector<int>> r )
+        {
+            CHECK_SAME_ELEMENTS( r.first, r.second );
+        } );
+    }
 
+    // Trivial flatmap
     {
         auto v = lift_cref(d)
             .map( []( const std::vector<int>& inner ) { return lift_cref(inner); } )
@@ -490,28 +507,13 @@ void testFlatMap()
 
         CHECK_SAME_ELEMENTS( fsummed, fsummed2 );
     }
-                    
-
-#if 0
-    {
-        auto addOneBase = mlift(d)
-            .map( []( const std::vector<int>& v )
-            {
-                return lift(v).lower<std::vector>();
-            } )
-            .retain<std::vector>();
-        
+      
     
-        addOneBase.zip(lift(d)).foreach( []( std::pair<std::vector<int>, std::vector<int>> r )
-        {
-            CHECK_SAME_ELEMENTS( r.first, r.second );
-        } );
-    }
     
 
     // flatMap
     {
-        auto addOne = lift(d).map( []( const std::vector<int>& v )
+        auto addOne = lift_cref(d).map( []( const std::vector<int>& v )
         {
             return lift(v).map( []( int a ) { return a+1; } );
         } );
@@ -520,10 +522,10 @@ void testFlatMap()
 
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 6, 8, 10, 12, 14, 16, 10, 12, 14, 16, 18, 20, 22 } );
     }
-    
+
     // flatten
     {
-        auto addOne = lift(d).map( []( const std::vector<int>& v )
+        auto addOne = lift_cref(d).map( []( const std::vector<int>& v )
         {
             return lift(v).map( []( int a ) { return 2*(a+1); } );
         } );
@@ -532,24 +534,22 @@ void testFlatMap()
 
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 6, 8, 10, 12, 14, 16, 10, 12, 14, 16, 18, 20, 22 } );
     }
-#endif
-#if 0
+
     // Returning new vectors from map
     {
-        std::vector<int> res = lift(d)
-            .map([](const std::vector<int>& v)
+        auto res = lift_cref(d)
+            .map([]( const std::vector<int>& v)
             {
                 std::vector<int> r;
                 for( int x : v ) { r.push_back( x ); }
-                return clift(std::move(r));
+                return lift_copy_container( std::move(r) );
             })
             .checkIteratorElementType<ContainerWrapper<std::vector<int>, int>>()
             .flatten()
-            .retain<std::vector>();
+            .lower<std::vector>();
 
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 1, 2, 3, 4, 5, 6, 7, 4, 5, 6, 7, 8, 9, 10 } );
     }
-#endif
 }
 
 void test3()
@@ -557,7 +557,7 @@ void test3()
     {
         std::vector<int> foo = { 1, 2, 3, 4, 5 };
         
-        mlift(foo)
+        lift_ref_wrapped(foo)
             .foreach( []( int& a )
             {
                 a += 1;
@@ -569,7 +569,7 @@ void test3()
     {
         std::vector<int> foo = { 1, 2, 3, 4, 5 };
         
-        mlift(foo)
+        lift_ref_wrapped(foo)
             .filter( []( int & a ) { return a > 3; } )
             .foreach( []( int& a )
             {
@@ -599,7 +599,7 @@ void test3()
     
     {
         std::vector<int> foo = { 1, 2, 3, 4, 5 };
-        mlift(foo)
+        lift_ref_wrapped(foo)
             .map( []( int& a ) { return &a; } )
             .sliding2()
             .foreach( []( std::pair<int*, int*> t )
@@ -612,7 +612,7 @@ void test3()
     
     {
         std::vector<int> foo = { 1, 2, 3, 4, 5 };
-        mlift(foo)
+        lift_ref_wrapped(foo)
             .sliding2()
             .foreach( []( std::pair<int&, int&> t )
             {
