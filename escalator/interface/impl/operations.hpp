@@ -398,24 +398,6 @@ namespace navetas { namespace escalator {
         int m_count;
     };
     
-    /*template<typename ValueT>
-    class OptionalWrapper : public Conversions<OptionalWrapper<ValueT>, typename ValueT::value_type, typename ValueT::value_type>
-    {
-    public:
-        OptionalWrapper( ValueT&& op ) : m_op( std::move(op) ) {}
-        typedef OptionalWrapper<ValueT> Iterator;
-        Iterator& getIterator() { return *this; }
-        bool hasNext() { return m_op; }
-        typename ValueT::value_type next()
-        {
-            typename ValueT::value_type val = std::move(m_op.get());
-            m_op.reset();
-            return val;
-        }
-    private:
-        ValueT m_op;
-    };*/
-    
     template<typename HasNextFnT, typename GetNextFnT>
     class GenericWrapper : public Conversions<GenericWrapper<HasNextFnT, GetNextFnT>,
         decltype( std::declval<GetNextFnT>()() ),
@@ -491,6 +473,41 @@ namespace navetas { namespace escalator {
         
         const std::string& toString() { return m_data; }
     };
+    
+    template<typename ElT>
+    class OptionalWrapper : public Conversions<OptionalWrapper<ElT>, ElT, ElT>
+    {
+    public:
+        OptionalWrapper( const boost::optional<ElT>& op ) : m_op( op )
+        {
+        }
+        
+        class Iterator
+        {
+        public:
+            Iterator( const boost::optional<ElT>& val ) : m_val(val)
+            {
+            }
+            
+            bool hasNext() { return static_cast<bool>(m_val); }
+            
+            ElT next()
+            {
+                ElT val = m_val.get();
+                m_val.reset();
+                return val;
+            }
+        private:
+            boost::optional<ElT> m_val;
+        };
+       
+        Iterator getIterator() { return Iterator( m_op ); }
+        
+        
+    private:
+        boost::optional<ElT> m_op;
+    };
+    
     
     template<typename BaseT, typename ElT, typename RetainElT>
     double ConversionsBase<BaseT, ElT, RetainElT>::increasing()
@@ -578,13 +595,18 @@ namespace navetas { namespace escalator {
             WrapWithReferenceWrapper>( cont.begin(), cont.end() );
     }
     
-    
-    
     template<typename HasNextFnT, typename GetNextFnT>
     GenericWrapper<HasNextFnT, GetNextFnT>
     lift_generic( HasNextFnT hasNextFn, GetNextFnT getNextFn )
     {
         return GenericWrapper<HasNextFnT, GetNextFnT>( hasNextFn, getNextFn );
+    }
+    
+    template<typename ElT>
+    OptionalWrapper<ElT>
+    lift( const boost::optional<ElT>& op )
+    {
+        return OptionalWrapper<ElT>( op );
     }
     
 }}

@@ -192,7 +192,32 @@ void testStructuralRequirements()
             
         BOOST_CHECK_EQUAL( res[0], 6 );
         BOOST_CHECK_EQUAL( res[1], 10 );
-    }    
+    }
+    
+    // Check wrapped optionals and flatten
+    {
+        std::vector<boost::optional<int>> a;
+        
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>(1) );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>(3) );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>(2) );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>(4) );
+        a.push_back( boost::optional<int>(5) );
+        
+        std::vector<int> res = lift( a )
+            .map( []( const boost::optional<int>& v ) { return lift(v); } )
+            .flatten()
+            .lower<std::vector>();
+            
+        CHECK_SAME_ELEMENTS( res, std::vector<int> { 1, 3, 2, 4, 5 } );
+    }
 }
 
 void test1()
