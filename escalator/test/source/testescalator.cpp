@@ -185,7 +185,7 @@ void testStructuralRequirements()
     }
     
     {
-        std::vector<std::vector<int>> p = { { 1, 2, 3 }, { 4, 5 }, {}, { 6 } };
+        std::vector<std::vector<int>> p = { { 1, 2, 3 }, { 4, 5 }, {0}, { 6 } };
         
         auto cpP = lift_cref(p)
             .map( []( const std::vector<int>& row )
@@ -198,16 +198,16 @@ void testStructuralRequirements()
             .retain<std::vector>();
             
         auto numberSum = cpP.map( []( ContainerWrapper<std::vector<int>, int> inner ) { return inner.sum(); } ).sum();
-        BOOST_CHECK_EQUAL( 27, numberSum );
+        BOOST_CHECK_EQUAL( 28, numberSum );
             
         // Run over the container twice
         CHECK_SAME_ELEMENTS( cpP
             .flatten()
-            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
+            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 1, 7 } );
             
         CHECK_SAME_ELEMENTS( cpP
             .flatten()
-            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 7 } );
+            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 1, 7 } );
     }
     
     {

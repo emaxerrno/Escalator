@@ -34,10 +34,6 @@ namespace navetas { namespace escalator {
     
     template<typename Source1T, typename El1T, typename Source2T, typename El2T>
     class ZipWrapper;
- 
-    template<typename ContainerT>
-    ContainerWrapper<ContainerT, typename ContainerT::value_type>
-    clift( ContainerT&& cont );
 
     template<typename ContainerT>
     IteratorWrapper<

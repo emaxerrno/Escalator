@@ -411,7 +411,9 @@ namespace navetas { namespace escalator {
         mutable_value_type sum()
         {
             auto it = get().getIterator();
-            mutable_value_type acc = mutable_value_type();
+            ESCALATOR_ASSERT( it.hasNext(), "Sum over insufficient items" );
+            
+            mutable_value_type acc = it.next();
 
             while ( it.hasNext() )
             {
