@@ -307,7 +307,7 @@ namespace navetas { namespace escalator {
                 DeconstMapKeyFunctor>( counts );
         }
         
-        // TODO : Note that this forces evaluation of the input stream
+        // TODO: Note that this forces evaluation of the input stream
         // TODO: distinct should be wrappable into distinctWith using
         // std::less
         ContainerWrapper<std::vector<ElT>, ElT> distinct()
@@ -334,7 +334,7 @@ namespace navetas { namespace escalator {
         template<typename SetOrdering>
         ContainerWrapper<std::vector<ElT>, ElT> distinctWith( SetOrdering cmp )
         {
-            //Same pattern as distinct above
+            // Same pattern as distinct above
             std::set<ElT, SetOrdering> seen( cmp );
             std::vector<typename std::set<ElT>::iterator> ordering;
             auto it = get().getIterator();
