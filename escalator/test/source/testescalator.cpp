@@ -1,14 +1,13 @@
 #define BOOST_TEST_DYN_LINK
 
-#include "escalator.hpp"
-
 #include <boost/test/unit_test.hpp>
 #include <boost/lexical_cast.hpp>
+
+#include "escalator.hpp"
 
 using namespace boost::unit_test;
 
 using namespace navetas::escalator;
-
 
 template<typename T1, typename T2>
 void CHECK_SAME_ELEMENTS( const T1& t1, const T2& t2 )
@@ -25,6 +24,228 @@ void CHECK_SAME_ELEMENTS( const T1& t1, const T2& t2 )
     } );
 }
 
+// A place for tests for the underlying structure of escalator - including the intrinsic move
+// semantics and use of reference_wrapper after lift or retain
+
+void testStructuralRequirements()
+{
+    // Simple tests
+    {
+        std::vector<int> a = { 5, 4, 3, 2, 1 };
+        
+        lift(a)
+            .checkIteratorElementType<int>();
+        
+        std::vector<int> res1 = lift(a).lower<std::vector>();
+        std::vector<int> res3 = lift(a).retain<std::vector>();
+        
+        std::vector<int> res5 = lift(a).map( []( const int& v ) -> int { return v; } ).retain<std::vector>();
+        
+        std::vector<int> res6 = lift(a)
+            .filter( []( const int& v ) { return v > 2; } )
+            .sortWith( []( const int& l, const int& r ) { return l < r; } )
+            .retain<std::vector>();
+            
+        BOOST_CHECK_EQUAL( lift( a.begin(), a.end() ).sum(), 15 );
+        BOOST_CHECK_EQUAL( lift( a.rbegin(), a.rend() ).sum(), 15 );
+    }
+    
+    {
+        std::vector<int> a = { 5, 4, 3, 2, 1 };
+        lift_ref( a.begin(), a.end() )
+            .foreach( []( int& v ) { v += 1; } );
+            
+        CHECK_SAME_ELEMENTS( a, std::vector<int> { 6, 5, 4, 3, 2 } );
+    }
+    
+    typedef std::unique_ptr<int> upInt_t;
+    
+    {
+        std::vector<upInt_t> a;
+        a.emplace_back( new int(3) );
+        a.emplace_back( new int(1) );
+        a.emplace_back( new int(4) );
+        a.emplace_back( new int(4) );
+        a.emplace_back( new int(2) );
+        
+        std::vector<upInt_t> res1 = lift_ref_wrapped(a)
+            .map( []( upInt_t& v ) { return std::move(v); } )
+            .lower<std::vector>();
+            
+        // Check that ownership has been transferred as expected
+        BOOST_REQUIRE( !a[0] );
+        BOOST_REQUIRE( res1[0] );
+     
+        lift_ref_wrapped(res1).foreach( []( upInt_t& v )
+        {
+            bool valid = static_cast<bool>(v);
+            BOOST_REQUIRE( valid );
+        } );
+    }
+        
+    // Check move-on-copy semantics with unique_ptr
+    {
+        std::vector<int> a = { 1, 2, 3, 4, 5, 6, 7, 8, 5, 4, 3, 2, 1 };
+        
+        std::vector<int> res1 = lift(a)
+            .map( []( int v )
+            {
+                return moc_wrap( upInt_t( new int(v) ) );
+            } )
+            .filter( []( const move_on_copy_wrapper<upInt_t>& val ) { return *(val.get()) >= 3; } )
+            .sortWith( []( const move_on_copy_wrapper<upInt_t>& l, const move_on_copy_wrapper<upInt_t>& r )
+            {
+                return *(l.get()) < *(r.get());
+            } )
+            .map( []( move_on_copy_wrapper<upInt_t> val )
+            {
+                // Check that the unique_ptr is valid
+                BOOST_REQUIRE( static_cast<bool>( val.get() ) );
+                return val;
+            } )
+            .map( []( const move_on_copy_wrapper<upInt_t>& val ) -> int { return *(val.get()); } )
+            .lower<std::vector>();
+            
+        CHECK_SAME_ELEMENTS( res1, std::vector<int> { 3, 3, 4, 4, 5, 5, 6, 7, 8 } );
+        
+        std::vector<upInt_t> res2 = lift(a)
+            .map( []( int v )
+            {
+                return moc_wrap( upInt_t( new int(v) ) );
+            } )
+            .filter( []( const move_on_copy_wrapper<upInt_t>& val ) { return *(val.get()) >= 3; } )
+            .sortWith( []( const move_on_copy_wrapper<upInt_t>& l, const move_on_copy_wrapper<upInt_t>& r )
+            {
+                return *(l.get()) < *(r.get());
+            } )
+            .map( []( move_on_copy_wrapper<upInt_t> val ) { return std::move(val.get()); } )
+            .lower<std::vector>();
+            
+            
+        // Check that there is still ownership in the unique_ptr
+        BOOST_REQUIRE( res2.size() > 0 );
+        BOOST_REQUIRE( static_cast<bool>( res2[0] ) );
+            
+        auto res3 = lift_ref(res2)
+            .map( []( const upInt_t& v ) { return *v; } )
+            .lower<std::vector>();
+
+        // Check that there is still ownership in the unique_ptr
+        BOOST_REQUIRE( static_cast<bool>( res2[0] ) );            
+            
+        CHECK_SAME_ELEMENTS( res3, std::vector<int> { 3, 3, 4, 4, 5, 5, 6, 7, 8 } );
+    }
+
+    
+    // Currently zipping two lifted things gives a pair of ref-wrappers which is
+    // perhaps a bit opaque to the user
+    {
+        std::vector<int> b = { 3, 1, 4, 4, 2 };
+        
+        std::vector<int> res3 = lift(b).zip(lift(b))
+            .map( []( std::pair<std::reference_wrapper<const int>, std::reference_wrapper<const int>> p )
+            {
+                return p.first * p.second;
+            } )
+            .checkIteratorElementType<int>()
+            // Check that multiple consecutive retains are stable-y typed
+            .retain<std::vector>()
+            .checkRawElementType<int>()
+            .retain<std::vector>()
+            .lower<std::vector>();
+
+        CHECK_SAME_ELEMENTS( res3, std::vector<int> { 9, 1, 16, 16, 4 } );
+    }
+    
+    // Test 
+    {
+        std::vector<upInt_t> a;
+        a.emplace_back( new int(3) );
+        a.emplace_back( new int(1) );
+        a.emplace_back( new int(4) );
+        a.emplace_back( new int(4) );
+        a.emplace_back( new int(2) );
+        
+        lift_cref(a)
+            .foreach( []( const upInt_t& v )
+            {
+            } );
+        
+        lift_ref_wrapped(a).zip( lift_ref_wrapped(a) )
+            .foreach( []( const std::pair<std::reference_wrapper<upInt_t>, std::reference_wrapper<upInt_t>>& p )
+            {
+            } );
+            
+        const std::vector<upInt_t>& b = a;
+        
+        lift_ref_wrapped(a).zip( lift_cref_wrapped(b) )
+            .foreach( []( const std::pair<std::reference_wrapper<upInt_t>, std::reference_wrapper<const upInt_t>>& p )
+            {
+            } );
+    }
+    
+    {
+        std::vector<std::vector<int>> p = { { 1, 2, 3 }, { 4, 5 }, {0}, { 6 } };
+        
+        auto cpP = lift_cref(p)
+            .map( []( const std::vector<int>& row )
+            {
+                return lift(row)
+                    .map( []( int v ) { return v + 1; } )
+                    .retain<std::vector>();
+            } )
+            .checkIteratorElementType<ContainerWrapper<std::vector<int>, int>>()
+            .retain<std::vector>();
+            
+        auto numberSum = cpP.map( []( ContainerWrapper<std::vector<int>, int> inner ) { return inner.sum(); } ).sum();
+        BOOST_CHECK_EQUAL( 28, numberSum );
+            
+        // Run over the container twice
+        CHECK_SAME_ELEMENTS( cpP
+            .flatten()
+            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 1, 7 } );
+            
+        CHECK_SAME_ELEMENTS( cpP
+            .flatten()
+            .lower<std::vector>(), std::vector<int> { 2, 3, 4, 5, 6, 1, 7 } );
+    }
+    
+    {
+        std::vector<int> b = { 1, 3, 1, 3, 2, 3, 4, 5, 4, 3, 2, 1, 6, 7, 8, 9 };
+        auto res = lift(b)
+            .countBy( []( int v ) { return v % 2; } )
+            .sortBy( []( const std::pair<int, size_t>& p ) { return p.second; } )
+            .lower<std::map>();
+            
+        BOOST_CHECK_EQUAL( res[0], 6 );
+        BOOST_CHECK_EQUAL( res[1], 10 );
+    }
+    
+    // Check wrapped optionals and flatten
+    {
+        std::vector<boost::optional<int>> a;
+        
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>(1) );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>(3) );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>(2) );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>() );
+        a.push_back( boost::optional<int>(4) );
+        a.push_back( boost::optional<int>(5) );
+        
+        std::vector<int> res = lift( a )
+            .map( []( const boost::optional<int>& v ) { return lift(v); } )
+            .flatten()
+            .lower<std::vector>();
+            
+        CHECK_SAME_ELEMENTS( res, std::vector<int> { 1, 3, 2, 4, 5 } );
+    }
+}
 
 void test1()
 {
@@ -35,13 +256,11 @@ void test1()
     
     std::vector<int> a = { 3, 1, 4, 4, 2 };
     
-    //std::vector<int> aq = lift(a).copyElements();
-    
-    std::vector<std::reference_wrapper<const int>> res1 = lift(a).retain<std::vector>();
-    std::set<std::reference_wrapper<const int>> res2 = lift(a).retain<std::set>();
-    std::list<std::reference_wrapper<const int>> res3 = lift(a).retain<std::list>();
-    std::multiset<std::reference_wrapper<const int>> res2a = lift(a).retain<std::multiset>();
-    std::deque<std::reference_wrapper<const int>> res3a = lift(a).retain<std::deque>();
+    std::vector<int> res1 = lift(a).retain<std::vector>();
+    std::set<int> res2 = lift(a).retain<std::set>();
+    std::list<int> res3 = lift(a).retain<std::list>();
+    std::multiset<int> res2a = lift(a).retain<std::multiset>();
+    std::deque<int> res3a = lift(a).retain<std::deque>();
     
     BOOST_CHECK_EQUAL( res1.size(), 5 );
     BOOST_CHECK_EQUAL( res2.size(), 4 );
@@ -49,22 +268,23 @@ void test1()
     BOOST_CHECK_EQUAL( res2a.size(), 5 );
     BOOST_CHECK_EQUAL( res3a.size(), 5 );
     
+
     std::set<int> q = { 1, 2, 3, 4 };
     auto z = lift(res2).zip(lift(q)).lower<std::vector>();
     BOOST_CHECK_EQUAL( z.size(), 4 );
     
     {
-        auto tmp = lift(res2).retain<std::vector>().zip( lift(q).retain<std::vector>() ).lower<std::vector>();
+        auto tmp = lift(res2).zip( lift(q) ).lower<std::vector>();
         BOOST_CHECK_EQUAL( tmp.size(), 4 );
     }
     
     CHECK_SAME_ELEMENTS( res2, std::set<int> { 1, 2, 3, 4 } );
     
-    std::vector<std::pair<int, int>> foo = lift(a).copyElements().zip( lift(a).copyElements() ).retain<std::vector>();
+    std::vector<std::pair<int, int>> foo = lift(a).zip( lift(a) ).retain<std::vector>();
     
     auto foo2 = lift(a)
         .map( []( const int& v ) -> const int& { return v; } )
-        .castElements<std::reference_wrapper<const int>>()
+        .castElements<int>()
         .retain<std::vector>();
 
     BOOST_CHECK_EQUAL( foo.size(), 5 );    
@@ -77,7 +297,7 @@ void test1()
     BOOST_CHECK_EQUAL( res4.size(), 5 );
     CHECK_SAME_ELEMENTS( res4, std::vector<std::string> { "9", "1", "16", "16", "4" } );
         
-    std::vector<int> res5 = lift(a).filter( []( int a ) { return a < 4; } ).copyElements().retain<std::vector>();
+    std::vector<int> res5 = lift(a).filter( []( int a ) { return a < 4; } ).retain<std::vector>();
     BOOST_CHECK_EQUAL( res5.size(), 3 );
     CHECK_SAME_ELEMENTS( res5, std::vector<int> { 3, 1, 2 } );
     
@@ -89,6 +309,16 @@ void test1()
         
     BOOST_CHECK_EQUAL( res6.size(), 4 );
     CHECK_SAME_ELEMENTS( res6, std::vector<int> { 1, 4, 4, 2 } );
+    
+    
+    std::vector<int> res6a;
+    lift(a)
+        .zipWithIndex()
+        .filter( []( const std::pair<int, size_t>& v ) { return v.second > 0; } )
+        .foreach( [&res6a]( const std::pair<int, size_t>& v ) { res6a.push_back( v.first ); } );
+        
+    BOOST_CHECK_EQUAL( res6a.size(), 4 );
+    CHECK_SAME_ELEMENTS( res6a, std::vector<int> { 1, 4, 4, 2 } );
 
 
     {
@@ -120,16 +350,14 @@ void test1()
         
     std::vector<int> res8 = lift(a)
         .map( []( int v ) { return v * v; } )
-        .sortWith( []( int a, int b ) { return a < b; } )
-        .retain<std::vector>();
+        .sortWith( []( int a, int b ) { return a < b; } );
     
     BOOST_CHECK_EQUAL( res8.size(), 5 );
     CHECK_SAME_ELEMENTS( res8, std::vector<int> { 1, 4, 9, 16, 16 } );
     
     std::vector<int> res8Default = lift(a)
         .map( []( int v ) { return v * v; } )
-        .sort()
-        .retain<std::vector>();
+        .sort();
     
     BOOST_CHECK_EQUAL( res8Default.size(), 5 );
     CHECK_SAME_ELEMENTS( res8Default, std::vector<int> { 1, 4, 9, 16, 16 } );
@@ -140,10 +368,13 @@ void test1()
     BOOST_CHECK_EQUAL( sum, 24 );
     
     // Should preserve order
-    std::vector<int> res9 = lift(a).distinct().copyElements().retain<std::vector>();
+    
+    // FIXME: Currently fails compilation because retain (via the ContainerWrapper) re-wraps the copied elements with a reference_wrapper
+    //std::vector<int> res9 = lift(a).distinct().copyElements().retain<std::vector>();
+    std::vector<int> res9 = lift(a).distinct().retain<std::vector>();
     CHECK_SAME_ELEMENTS( res9, std::vector<int> { 3, 1, 4, 2 } );
     
-    auto res9a = lift(a).distinct().copyElements().lower<std::vector>();
+    auto res9a = lift(a).distinct().lower<std::vector>();
     CHECK_SAME_ELEMENTS( res9, res9a );
     
     {
@@ -154,8 +385,10 @@ void test1()
             std::make_shared<int>( 4 ),
             std::make_shared<int>( 1 ) };
     
-        std::vector<int> unique = lift(foo)
-            .copyElements()
+        // lift_ref_wrapped rather than lift_ref as reference_wrappers are able to live in STL containers
+        // (i.e. the ones used by distinctWith). Perhaps this could be hidden away from the user and
+        // lift_ref could be used instead
+        std::vector<int> unique = lift_ref_wrapped(foo)
             .distinctWith( []( const std::shared_ptr<int>& a, const std::shared_ptr<int>& b )
             {
                 BOOST_REQUIRE( a );
@@ -167,18 +400,19 @@ void test1()
             
         CHECK_SAME_ELEMENTS( unique, std::vector<int> { 1, 3, 4 } );
     }
+
     
     // Shouldn't preserve order
-    std::set<int> res10 = lift(a).copyElements().retain<std::set>();
+    std::set<int> res10 = lift(a).retain<std::set>();
     CHECK_SAME_ELEMENTS( res10, std::vector<int> { 1, 2, 3, 4 } );
     
-    std::multiset<int> ms = lift(a).copyElements().retain<std::multiset>();
+    std::multiset<int> ms = lift(a).retain<std::multiset>();
     CHECK_SAME_ELEMENTS( ms, std::vector<int> { 1, 2, 3, 4, 4 } );
     
-    CHECK_SAME_ELEMENTS( lift(a).drop(0).copyElements().lower<std::vector>(), std::vector<int> { 3, 1, 4, 4, 2 } );
-    CHECK_SAME_ELEMENTS( lift(a).drop(3).copyElements().lower<std::vector>(), std::vector<int> { 4, 2 } );
-    CHECK_SAME_ELEMENTS( lift(a).slice(1, 3).copyElements().lower<std::vector>(), std::vector<int> { 1, 4 } );
-    CHECK_SAME_ELEMENTS( lift(a).take(3).copyElements().lower<std::vector>(), std::vector<int> { 3, 1, 4 } );
+    CHECK_SAME_ELEMENTS( lift(a).drop(0).lower<std::vector>(), std::vector<int> { 3, 1, 4, 4, 2 } );
+    CHECK_SAME_ELEMENTS( lift(a).drop(3).lower<std::vector>(), std::vector<int> { 4, 2 } );
+    CHECK_SAME_ELEMENTS( lift(a).slice(1, 3).lower<std::vector>(), std::vector<int> { 1, 4 } );
+    CHECK_SAME_ELEMENTS( lift(a).take(3).lower<std::vector>(), std::vector<int> { 3, 1, 4 } );
     
     std::vector<std::pair<int, std::string>> b =
     {
@@ -196,14 +430,14 @@ void test1()
     
     
             
-    std::map<int, std::string> mv = lift(b).copyElements().lower<std::map>();
+    std::map<int, std::string> mv = lift(b).lower<std::map>();
     BOOST_REQUIRE_EQUAL( mv.size(), 4 );
     BOOST_CHECK_EQUAL( mv[1], "B" );
     BOOST_CHECK_EQUAL( mv[2], "D" );
     BOOST_CHECK_EQUAL( mv[3], "X" );
     BOOST_CHECK_EQUAL( mv[4], "Z" );
     
-    std::multimap<int, std::string> mmv = lift(b).copyElements().lower<std::multimap>();
+    std::multimap<int, std::string> mmv = lift(b).lower<std::multimap>();
     BOOST_REQUIRE_EQUAL( mmv.size(), 10 );
     
     auto grouped = lift(b)
@@ -222,6 +456,7 @@ void test1()
     auto counts = lift(b)
         .countBy( []( const std::pair<int, std::string>& v ) { return v.first; } )
         .lower<std::map>();
+        
     BOOST_REQUIRE_EQUAL( counts.size(), 4 );
     BOOST_CHECK_EQUAL( counts[1], 3 );
     BOOST_CHECK_EQUAL( counts[2], 4 );
@@ -282,24 +517,43 @@ void testFlatMap()
 {
     std::vector<std::vector<int>> d = { {1, 2, 3, 4, 5, 6, 7}, {4, 5}, {6}, {}, { 7, 8, 9, 10 } };
     
+    // Reference lifting of inner types
     {
-        auto addOneBase = mlift(d)
-        .map( []( const std::vector<int>& v )
-        {
-            return lift(v).map( identity ).retain<std::vector>();
-        } )
-        .retain<std::vector>();
+        auto addOneBase = lift_ref_wrapped(d)
+            .map( []( const std::vector<int>& v )
+            {
+                return lift(v).lower<std::vector>();
+            } )
+            .retain<std::vector>();
         
     
-        addOneBase.zip(lift(d)).foreach( []( std::pair<const std::vector<int>&, const std::vector<int>&> r )
+        addOneBase.zip(lift(d)).foreach( []( std::pair<std::vector<int>, std::vector<int>> r )
         {
             CHECK_SAME_ELEMENTS( r.first, r.second );
         } );
     }
 
+    // Trivial flatmap
+    {
+        auto v = lift_cref(d)
+            .map( []( const std::vector<int>& inner ) { return lift_cref(inner); } )
+            .retain<std::vector>();
+        
+        auto fsummed = v.flatMap( []( int v ) { return v + 1; } ).lower<std::vector>();
+        
+        CHECK_SAME_ELEMENTS( fsummed, std::vector<int> { 2, 3, 4, 5, 6, 7, 8, 5, 6, 7, 8, 9, 10, 11 } );
+        
+        auto fsummed2 = v.flatten().map( []( int v ) { return v + 1; } ).lower<std::vector>();
+
+        CHECK_SAME_ELEMENTS( fsummed, fsummed2 );
+    }
+      
+    
+    
+
     // flatMap
     {
-        auto addOne = mlift(d).map( []( const std::vector<int>& v )
+        auto addOne = lift_cref(d).map( []( const std::vector<int>& v )
         {
             return lift(v).map( []( int a ) { return a+1; } );
         } );
@@ -308,10 +562,10 @@ void testFlatMap()
 
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 6, 8, 10, 12, 14, 16, 10, 12, 14, 16, 18, 20, 22 } );
     }
-    
+
     // flatten
     {
-        auto addOne = mlift(d).map( []( const std::vector<int>& v )
+        auto addOne = lift_cref(d).map( []( const std::vector<int>& v )
         {
             return lift(v).map( []( int a ) { return 2*(a+1); } );
         } );
@@ -321,19 +575,20 @@ void testFlatMap()
         CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 6, 8, 10, 12, 14, 16, 10, 12, 14, 16, 18, 20, 22 } );
     }
 
-    //Returning new vectors from map
+    // Returning new vectors from map
     {
-        std::vector<int> res = lift(d)
-        .map([](const std::vector<int>& v)
-        {
-            std::vector<int> r;
-            for( int x : v ) { r.push_back((x+1)*2); }
-            return clift(std::move(r));
-        })
-        .flatten()
-        .retain<std::vector>();
+        auto res = lift_cref(d)
+            .map([]( const std::vector<int>& v)
+            {
+                std::vector<int> r;
+                for( int x : v ) { r.push_back( x ); }
+                return lift_copy_container( std::move(r) );
+            })
+            .checkIteratorElementType<ContainerWrapper<std::vector<int>, int>>()
+            .flatten()
+            .lower<std::vector>();
 
-        CHECK_SAME_ELEMENTS( res, std::vector<int> { 4, 6, 8, 10, 12, 14, 16, 10, 12, 14, 16, 18, 20, 22 } );
+        CHECK_SAME_ELEMENTS( res, std::vector<int> { 1, 2, 3, 4, 5, 6, 7, 4, 5, 6, 7, 8, 9, 10 } );
     }
 }
 
@@ -342,7 +597,7 @@ void test3()
     {
         std::vector<int> foo = { 1, 2, 3, 4, 5 };
         
-        mlift(foo)
+        lift_ref_wrapped(foo)
             .foreach( []( int& a )
             {
                 a += 1;
@@ -354,7 +609,7 @@ void test3()
     {
         std::vector<int> foo = { 1, 2, 3, 4, 5 };
         
-        mlift(foo)
+        lift_ref_wrapped(foo)
             .filter( []( int & a ) { return a > 3; } )
             .foreach( []( int& a )
             {
@@ -384,7 +639,7 @@ void test3()
     
     {
         std::vector<int> foo = { 1, 2, 3, 4, 5 };
-        mlift(foo)
+        lift_ref_wrapped(foo)
             .map( []( int& a ) { return &a; } )
             .sliding2()
             .foreach( []( std::pair<int*, int*> t )
@@ -397,7 +652,7 @@ void test3()
     
     {
         std::vector<int> foo = { 1, 2, 3, 4, 5 };
-        mlift(foo)
+        lift_ref_wrapped(foo)
             .sliding2()
             .foreach( []( std::pair<int&, int&> t )
             {
@@ -432,9 +687,11 @@ void testStringManip()
         .map( []( const std::string& line )
         {
             auto els = lift(line).split(",").retain<std::vector>();
+            
             std::vector<int> numEls = els.map( []( const std::string& el )
             {
-                return boost::lexical_cast<int>( lift(el).trim().toString() );
+                auto trimmed = lift(el).trim().toString();
+                return boost::lexical_cast<int>( trimmed );
             } ).retain<std::vector>();
             return numEls[1];
         } )
@@ -463,7 +720,7 @@ void testCounter()
     CHECK_SAME_ELEMENTS( counter().take(5).lower<std::vector>(), std::vector<int> { 0, 1, 2, 3, 4 } );
 }
 
-void testStream()
+void testGenericLift()
 {
     class Source
     {
@@ -479,7 +736,9 @@ void testStream()
 
     Source s;
     s.m_val = 1;
-    std::vector<int> res = slift(s).take(2).retain<std::vector>();
+    std::vector<int> res = lift_generic(
+        [&s]() { return !s.eof(); },
+        [&s]() { return s.pop(); } ).take(2).retain<std::vector>();
     CHECK_SAME_ELEMENTS( res, std::vector<int> { 1, 1 } );
 }
 
@@ -494,6 +753,7 @@ void testShortInputs()
     BOOST_CHECK_THROW( lift(res).slice(3, 8, ASSERT_WHEN_INSUFFICIENT).retain<std::vector>(), SliceError );
 
     BOOST_CHECK_THROW( lift(std::vector<int>()).mean(), std::runtime_error );
+    
 }
 
 void testNonCopyable()
@@ -505,95 +765,13 @@ void testNonCopyable()
     std::vector<NoCopy> v(10);
 
     int count = 0;
-    lift(v)
-    .foreach([&count](const NoCopy& n)
-    {
-        count++;
-    });
+    lift_ref(v)
+        .foreach([&count](const NoCopy& n)
+        {
+            count++;
+        });
     BOOST_CHECK_EQUAL( count, 10 );
 }
-
-void testNestedReferences()
-{
-    int a=1;
-    int b=2;
-    std::vector<std::reference_wrapper<int>> v = {a, b};
-
-    auto s = lift(v)
-    .map([](const int& i)
-    {
-        return i+1;
-    })
-    .sum();
-    BOOST_CHECK_EQUAL( s, 5 );
-}
-
-void testOptional()
-{
-    struct Thing
-    {
-        Thing(int& res) : m_res(res) {}
-        ~Thing() { m_res++; }
-
-        int& m_res;
-        int a;
-        long b;
-    };
-
-    {
-        Optional<Thing> o;
-        BOOST_CHECK_EQUAL( static_cast<bool>(o), false );
-    }
-
-    int res = 0;
-    Thing t(res); t.a=1; t.b=2;
-    {
-        Optional<Thing>o(t);
-        BOOST_CHECK_EQUAL( res, 0 );
-        BOOST_CHECK_EQUAL( static_cast<bool>(o), true );
-        BOOST_CHECK_EQUAL( o->a, 1 );
-        BOOST_CHECK_EQUAL( o->b, 2 );
-        BOOST_CHECK_EQUAL( (*o).a, 1 );
-        BOOST_CHECK_EQUAL( (*o).b, 2 );
-
-        Thing u(res); u.a=0; u.b=-1;
-        o = u;
-        BOOST_CHECK_EQUAL( res, 1 );
-        BOOST_CHECK_EQUAL( o->a, 0 );
-
-        Optional<Thing> o2(o);
-        BOOST_CHECK_EQUAL( o->a, 0 );
-    }
-    //res incremented by all of u, o & o2 dying
-    BOOST_CHECK_EQUAL( res, 4 );
-
-    {
-        Optional<std::unique_ptr<Thing>> o;
-    }
-
-    int unique_res=0;
-    std::unique_ptr<Thing> p(new Thing(unique_res));
-    p->a = 3; p->b = 4;
-    {
-        Optional<std::unique_ptr<Thing>> o(std::move(p));
-        BOOST_CHECK_EQUAL( unique_res, 0 );
-        BOOST_CHECK_EQUAL( (*o)->a, 3 );
-        
-        std::unique_ptr<Thing> q(new Thing(unique_res));
-        q->a = 5; q->b = 6;
-        o = std::move(q);
-        //unique_res now incrementes as the object originally pointed at by p
-        //has now been destroyed
-        BOOST_CHECK_EQUAL( unique_res, 1 );
-        BOOST_CHECK_EQUAL( (*o)->a, 5 );
-
-        Optional<std::unique_ptr<Thing>> o2(std::move(o));
-        BOOST_CHECK_EQUAL( unique_res, 1 );
-        BOOST_CHECK_EQUAL( (*o2)->a, 5 );
-    }
-    BOOST_CHECK_EQUAL( unique_res, 2 );
-}
-
 
 
 void testIteratorAndIterable()
@@ -656,19 +834,19 @@ void testIteratorAndIterable()
 
 void addTests( test_suite *t )
 {
+    t->add( BOOST_TEST_CASE( testStructuralRequirements ) );
     t->add( BOOST_TEST_CASE( test1 ) );
     t->add( BOOST_TEST_CASE( testFlatMap ) );
     t->add( BOOST_TEST_CASE( test3 ) );
-    t->add( BOOST_TEST_CASE( testStream ) );
+    t->add( BOOST_TEST_CASE( testGenericLift ) );
     t->add( BOOST_TEST_CASE( testStringManip ) );
     t->add( BOOST_TEST_CASE( testPartitions ) );
     t->add( BOOST_TEST_CASE( testCounter ) );
     t->add( BOOST_TEST_CASE( testShortInputs) );
     t->add( BOOST_TEST_CASE( testNonCopyable) );
-    t->add( BOOST_TEST_CASE( testNestedReferences) );
-    t->add( BOOST_TEST_CASE( testOptional ) );
     t->add( BOOST_TEST_CASE( testIteratorAndIterable ) );
 }
+
 
 bool init()
 {
