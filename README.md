@@ -116,3 +116,11 @@ CHECK_SAME_ELEMENTS( res, std::vector<int> { 2, 5, 8, 11 } );
 
 * Clone the repo.
 * Build and run tests (on Linux, with Gcc) with ```./sbt "native-build-configuration Gcc_LinuxPC_Release" compile test```
+
+#### Variants of lift
+
+* lift: Lifts the container elements by value
+* lift_cref: Lifts the container elements by reference
+* lift_ref: Lifts the container elements by reference
+* lift_ref_wrapper: Lifts the container elements by reference and wraps with a reference_wrapper (handy when sorting/grouping elements as these operations internally use STL containers).
+* lift_cref_wrapper:  Lifts the container elements by const reference and wraps with a reference_wrapper.
